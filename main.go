@@ -35,6 +35,6 @@ func main() {
 	sd.ClearButtons()
 
 	sd.SetBrightness(50)
-
+	InitButtons(sd)
 	sd.ButtonPress(MyButtonPress)
 }
