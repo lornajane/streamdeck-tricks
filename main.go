@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/fsnotify/fsnotify"
 	streamdeck "github.com/magicmonkey/go-streamdeck"
@@ -31,10 +32,17 @@ func loadConfigAndDefaults() {
 func main() {
 	loadConfigAndDefaults()
 
-	sd := streamdeck.Open()
+	sd, err := streamdeck.Open()
+	if err != nil {
+		panic(err)
+	}
 	sd.ClearButtons()
 
 	sd.SetBrightness(50)
 	InitButtons(sd)
 	sd.ButtonPress(MyButtonPress)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	wg.Wait()
 }

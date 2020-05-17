@@ -26,6 +26,7 @@ func InitButtons(sd *streamdeck.Device) {
 
 	ToggleImageOnButton(sd, 24, viper.GetString("images_buttons")+"/flamingo.jpg")
 	ToggleImageOnButton(sd, 25, viper.GetString("images_buttons")+"/flamingo.jpg")
+	sd.WriteTextToButton(26, "Hi Lorna!", color.RGBA{0, 0, 0, 255}, color.RGBA{0, 255, 255, 255})
 
 	// Initialise MQTT to use the shelf light features
 	opts := mqtt.NewClientOptions().AddBroker("tcp://10.1.0.1:1883").SetClientID("go-streamdeck")
@@ -49,7 +50,7 @@ func InitButtons(sd *streamdeck.Device) {
 }
 
 // MyButtonPress reacts to a button being pressed
-func MyButtonPress(btnIndex int, sd *streamdeck.Device) {
+func MyButtonPress(btnIndex int, sd *streamdeck.Device, err error) {
 	switch btnIndex {
 	case 15:
 		cmd := exec.Command("xeyes")
