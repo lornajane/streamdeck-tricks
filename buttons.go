@@ -32,21 +32,23 @@ func InitButtons(sd *streamdeck.Device) {
 	opts := mqtt.NewClientOptions().AddBroker("tcp://10.1.0.1:1883").SetClientID("go-streamdeck")
 	mqtt_client = mqtt.NewClient(opts)
 	if conn_token := mqtt_client.Connect(); conn_token.Wait() && conn_token.Error() != nil {
-		panic(conn_token.Error())
+		log.Println(conn_token.Error())
 	}
 
 	// Initialise OBS to use OBS features (requires websockets plugin in OBS)
 	obs_client = obsws.Client{Host: "localhost", Port: 4444}
-	if err := obs_client.Connect(); err != nil {
-		log.Fatal(err)
+	err := obs_client.Connect()
+	if err != nil {
+		log.Println(err)
+	} else {
+		// go ahead and set up event handlers
+
+		// probably need to react to scene changes, log it for now
+		obs_client.AddEventHandler("SwitchScenes", func(e obsws.Event) {
+			// Make sure to assert the actual event type.
+			log.Println("new scene:", e.(obsws.SwitchScenesEvent).SceneName)
+		})
 	}
-
-	// probably need to react to scene changes, log it for now
-	obs_client.AddEventHandler("SwitchScenes", func(e obsws.Event) {
-		// Make sure to assert the actual event type.
-		log.Println("new scene:", e.(obsws.SwitchScenesEvent).SceneName)
-	})
-
 }
 
 // MyButtonPress reacts to a button being pressed
@@ -66,7 +68,7 @@ func MyButtonPress(btnIndex int, sd *streamdeck.Device, err error) {
 		req := obsws.NewSetCurrentSceneRequest("Secrets")
 		resp, err := req.SendReceive(obs_client)
 		if err != nil {
-			log.Fatal(err)
+			fmt.Printf("%#v\n", err)
 		}
 		fmt.Printf("%#v\n", resp)
 
@@ -75,7 +77,7 @@ func MyButtonPress(btnIndex int, sd *streamdeck.Device, err error) {
 		req := obsws.NewSetCurrentSceneRequest("Soon")
 		resp, err := req.SendReceive(obs_client)
 		if err != nil {
-			log.Fatal(err)
+			fmt.Printf("%#v\n", err)
 		}
 		fmt.Printf("%#v\n", resp)
 
@@ -102,11 +104,10 @@ type Color struct {
 	Blue  int `json:"blue"`
 }
 
-// SetShelfLights sends MQTT messages to my neopixel-enabled shelf
+// SetShelfLights sends MQTT messages to my neopixel-enabled shelf (max value: 200)
 func SetShelfLights(targetColor Color) {
 	payload, _ := json.Marshal(targetColor)
 	fmt.Printf("%s\n", string(payload))
 	token := mqtt_client.Publish("/shelf/lights", 0, false, payload)
 	token.Wait()
-
 }
