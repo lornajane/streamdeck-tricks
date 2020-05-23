@@ -11,11 +11,15 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/magicmonkey/go-streamdeck"
 	"github.com/spf13/viper"
+
+	_ "github.com/godbus/dbus"
+	"github.com/sqp/pulseaudio"
 )
 
 var button_images [32]string
 var mqtt_client mqtt.Client
 var obs_client obsws.Client
+var pulse *pulseaudio.Client
 
 // InitButtons sets up initial button prompts
 func InitButtons(sd *streamdeck.Device) {
@@ -49,23 +53,40 @@ func InitButtons(sd *streamdeck.Device) {
 			log.Println("new scene:", e.(obsws.SwitchScenesEvent).SceneName)
 		})
 	}
+
+	// Get some Audio Setup
+	pulse = getPulseConnection()
+
 }
 
 // MyButtonPress reacts to a button being pressed
 func MyButtonPress(btnIndex int, sd *streamdeck.Device, err error) {
 	switch btnIndex {
+	case 0:
+		sources, _ := pulse.Core().ListPath("Sources")
+
+		for _, src := range sources {
+			dev := pulse.Device(src) // Only use the first sink for the test.
+			var name string
+			var muted bool
+			dev.Get("Name", &name)
+			dev.Get("Mute", &muted)
+			fmt.Println(src, muted, name)
+
+			dev.Set("Mute", true)
+		}
 	case 15:
 		cmd := exec.Command("xeyes")
 		cmd.Start()
 	case 8:
 		SetShelfLights(Color{Red: 200, Blue: 200})
 	case 9:
-		SetShelfLights(Color{Blue: 200})
+		SetShelfLights(Color{Blue: 200, Green: 30, Red: 50})
 	case 10:
 		SetShelfLights(Color{Red: 160, Green: 200})
 	case 24:
-		fmt.Println("Set scene: Secrets")
-		req := obsws.NewSetCurrentSceneRequest("Secrets")
+		fmt.Println("Set scene: Camera")
+		req := obsws.NewSetCurrentSceneRequest("Camera")
 		resp, err := req.SendReceive(obs_client)
 		if err != nil {
 			fmt.Printf("%#v\n", err)
@@ -73,8 +94,8 @@ func MyButtonPress(btnIndex int, sd *streamdeck.Device, err error) {
 		fmt.Printf("%#v\n", resp)
 
 	case 25:
-		fmt.Println("Set scene: Soon")
-		req := obsws.NewSetCurrentSceneRequest("Soon")
+		fmt.Println("Set scene: ScreenshareWithCam")
+		req := obsws.NewSetCurrentSceneRequest("ScreenshareWithCam")
 		resp, err := req.SendReceive(obs_client)
 		if err != nil {
 			fmt.Printf("%#v\n", err)
@@ -110,4 +131,34 @@ func SetShelfLights(targetColor Color) {
 	fmt.Printf("%s\n", string(payload))
 	token := mqtt_client.Publish("/shelf/lights", 0, false, payload)
 	token.Wait()
+}
+
+type AppPulse struct {
+	Client *pulseaudio.Client
+}
+
+func getPulseConnection() *pulseaudio.Client {
+	isLoaded, e := pulseaudio.ModuleIsLoaded()
+	fmt.Printf("%#v\n", e)
+	testFatal(e, "test pulse dbus module is loaded")
+	if !isLoaded {
+		e = pulseaudio.LoadModule()
+		testFatal(e, "load pulse dbus module")
+	}
+
+	// Connect to the pulseaudio dbus service.
+	pulse, e := pulseaudio.New()
+	testFatal(e, "connect to the pulse service")
+	return pulse
+}
+
+func closePulseConnection(pulse *pulseaudio.Client) {
+	//defer pulseaudio.UnloadModule()
+	defer pulse.Close()
+}
+
+func testFatal(e error, msg string) {
+	if e != nil {
+		log.Fatalln(msg+":", e)
+	}
 }
