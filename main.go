@@ -1,47 +1,53 @@
 package main
 
 import (
-	"fmt"
+	"os"
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
 	streamdeck "github.com/magicmonkey/go-streamdeck"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 )
 
 func loadConfigAndDefaults() {
-	viper.AddConfigPath(".")
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: "15:04"})
 
 	// first set some default values
-	viper.SetDefault("images_buttons", "images/buttons") // location of button images
+	viper.AddConfigPath(".")
+	viper.SetDefault("buttons.images", "images/buttons") // location of button images
+	viper.SetDefault("obs.host", "localhost")            // OBS webhooks endpoint
+	viper.SetDefault("obs.port", 4444)                   // OBS webhooks endpoint
+	viper.SetDefault("mqtt.uri", "tcp://10.1.0.1:1883")  // MQTT server location
 
 	// now read in config for any overrides
 	err := viper.ReadInConfig()
 	if err != nil { // Handle errors reading the config file
-		fmt.Printf("Cannot read config file: %s \n", err)
+		log.Warn().Msgf("Cannot read config file: %s \n", err)
 	}
-	fmt.Println(viper.Get("images_buttons"))
 
 	// useful in development phase, pick up config file updates
 	viper.WatchConfig()
 	viper.OnConfigChange(func(e fsnotify.Event) {
-		fmt.Println("Config file changed:", e.Name)
+		log.Info().Msgf("Config file changed:", e.Name)
 	})
+
 }
 
 func main() {
 	loadConfigAndDefaults()
+	log.Info().Msg("Starting streamdeck tricks. Hai!")
 
-	sd, err := streamdeck.Open()
+	sd, err := streamdeck.New()
 	if err != nil {
+		log.Error().Err(err).Msg("Error finding Streamdeck")
 		panic(err)
 	}
-	sd.ClearButtons()
 
-	sd.SetBrightness(50)
 	InitButtons(sd)
-	sd.ButtonPress(MyButtonPress)
 
+	log.Info().Msg("Up and running")
 	var wg sync.WaitGroup
 	wg.Add(1)
 	wg.Wait()
