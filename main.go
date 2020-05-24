@@ -11,6 +11,8 @@ import (
 	"github.com/spf13/viper"
 )
 
+var sd *streamdeck.StreamDeck
+
 func loadConfigAndDefaults() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: "15:04"})
 
@@ -39,13 +41,14 @@ func main() {
 	loadConfigAndDefaults()
 	log.Info().Msg("Starting streamdeck tricks. Hai!")
 
-	sd, err := streamdeck.New()
+	var err error
+	sd, err = streamdeck.New()
 	if err != nil {
 		log.Error().Err(err).Msg("Error finding Streamdeck")
 		panic(err)
 	}
 
-	InitButtons(sd)
+	InitButtons()
 
 	log.Info().Msg("Up and running")
 	var wg sync.WaitGroup

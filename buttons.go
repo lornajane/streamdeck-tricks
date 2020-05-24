@@ -1,19 +1,23 @@
 package main
 
 import (
+	"fmt"
 	"image/color"
 	"os/exec"
+	"strconv"
+	"time"
 
-	"github.com/rs/zerolog/log"
 	"github.com/christopher-dG/go-obs-websocket"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/lornajane/streamdeck-tricks/actionhandlers"
-	sdactionhandlers "github.com/magicmonkey/go-streamdeck/actionhandlers"
 	"github.com/magicmonkey/go-streamdeck"
+	sdactionhandlers "github.com/magicmonkey/go-streamdeck/actionhandlers"
 	buttons "github.com/magicmonkey/go-streamdeck/buttons"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 
 	_ "github.com/godbus/dbus"
+	belkin "github.com/magicmonkey/gobelkinwemo"
 	"github.com/sqp/pulseaudio"
 )
 
@@ -21,8 +25,10 @@ var mqtt_client mqtt.Client
 var obs_client obsws.Client
 var pulse *pulseaudio.Client
 
+var buttons_wemo map[int]string
+
 // InitButtons sets up initial button prompts
-func InitButtons(sd *streamdeck.StreamDeck) {
+func InitButtons() {
 	// Initialise MQTT to use the shelf light features
 	mqtt_client = connectMQTT()
 
@@ -35,6 +41,13 @@ func InitButtons(sd *streamdeck.StreamDeck) {
 			log.Info().Msg("new scene: " + e.(obsws.SwitchScenesEvent).SceneName)
 		})
 	}
+
+	// WEMO plugs
+	buttons_wemo = make(map[int]string)
+	buttons_wemo[16] = "Christmas lights"
+	buttons_wemo[17] = "Thinking light"
+
+	go startWemoScan()
 
 	// Get some Audio Setup
 	pulse = getPulseConnection()
@@ -54,19 +67,23 @@ func InitButtons(sd *streamdeck.StreamDeck) {
 
 	// OBS
 	o1action := &actionhandlers.OBSSceneAction{Scene: "Camera", Client: obs_client}
-	o1button := buttons.NewImageFileButton(viper.GetString("buttons.images") + "/camera.png")
-	o1button.SetActionHandler(o1action)
-	sd.AddButton(24, o1button)
+	o1button, err := buttons.NewImageFileButton(viper.GetString("buttons.images") + "/camera.png")
+	if err == nil {
+		o1button.SetActionHandler(o1action)
+		sd.AddButton(24, o1button)
+	}
 
-	o2button := buttons.NewImageFileButton(viper.GetString("buttons.images") + "/screen-and-cam.png")
 	o2action := &actionhandlers.OBSSceneAction{Scene: "Screenshare", Client: obs_client}
-	o2button.SetActionHandler(o2action)
-	sd.AddButton(25, o2button)
+	o2button, err := buttons.NewImageFileButton(viper.GetString("buttons.images") + "/screen-and-cam.png")
+	if err == nil {
+		o2button.SetActionHandler(o2action)
+		sd.AddButton(25, o2button)
+	}
 
 	// Command
 	eyesbutton := buttons.NewTextButton("Eyes")
 	eyesaction := &sdactionhandlers.CustomAction{}
-	eyesaction.SetHandler(func (btn streamdeck.Button) {
+	eyesaction.SetHandler(func(btn streamdeck.Button) {
 		cmd := exec.Command("xeyes")
 		cmd.Start()
 	})
@@ -156,3 +173,33 @@ func testFatal(e error, msg string) {
 	}
 }
 
+// Wemo functions from magicmonkey modified library
+func startWemoScan() {
+	err := belkin.ScanWithCallback(belkin.DTInsight, 10, gotWemoDevice)
+	fmt.Println(err)
+}
+
+func gotWemoDevice(device belkin.Device) {
+	device.Load(1 * time.Second)
+	state, err := device.FetchBinaryState(1 * time.Second)
+	if err != nil {
+		log.Warn().Err(err)
+	}
+	log.Info().Msg("Found device " + device.FriendlyName)
+	log.Debug().Msg("Current device state: " + strconv.Itoa(state)) // 0, 1 or 8 (for standby)
+
+	for i, name := range buttons_wemo {
+		if name == device.FriendlyName {
+			// colour reflects state: green for on, red for off
+			colour := color.RGBA{255, 0, 50, 255}
+			if state == 1 {
+				colour = color.RGBA{20, 255, 50, 255}
+			}
+			wemobutton := buttons.NewTextButtonWithColours(name, colour, color.RGBA{0, 0, 0, 255})
+			wemoaction := &actionhandlers.WemoAction{Device: device, State: device.BinaryState}
+			wemobutton.SetActionHandler(wemoaction)
+			sd.AddButton(i, wemobutton)
+		}
+	}
+
+}
