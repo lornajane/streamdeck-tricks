@@ -25,7 +25,8 @@ var mqtt_client mqtt.Client
 var obs_client obsws.Client
 var pulse *pulseaudio.Client
 
-var buttons_wemo map[int]string
+var buttons_wemo map[int]string // button ID and Wemo device name
+var buttons_obs map[string]string // scene name and image name
 
 // InitButtons sets up initial button prompts
 func InitButtons() {
@@ -66,18 +67,57 @@ func InitButtons() {
 	sd.AddButton(10, cbutton)
 
 	// OBS
-	o1action := &actionhandlers.OBSSceneAction{Scene: "Camera", Client: obs_client}
-	o1button, err := buttons.NewImageFileButton(viper.GetString("buttons.images") + "/camera.png")
-	if err == nil {
-		o1button.SetActionHandler(o1action)
-		sd.AddButton(24, o1button)
-	}
+	buttons_obs = make(map[string]string)
+	buttons_obs["Camera"] = "/camera.png"
+	buttons_obs["Screenshare"] = "/screen-and-cam.png"
+	buttons_obs["Secrets"] = "/secrets.png"
+	buttons_obs["Offline"] = "/offline.png"
+	buttons_obs["Soon"] = "/soon.png"
+	buttons_obs["BRB"] = "/garble.png"
 
-	o2action := &actionhandlers.OBSSceneAction{Scene: "Screenshare", Client: obs_client}
-	o2button, err := buttons.NewImageFileButton(viper.GetString("buttons.images") + "/screen-and-cam.png")
-	if err == nil {
-		o2button.SetActionHandler(o2action)
-		sd.AddButton(25, o2button)
+	if obs_client.Connected() == true {
+		// offset for what number button to start at
+		offset := 0
+		image_path := viper.GetString("buttons.images")
+		var image string
+
+		// what scenes do we have? (max 8)
+		scene_req := obsws.NewGetSceneListRequest()
+		scenes, err := scene_req.SendReceive(obs_client)
+		if err != nil {
+			log.Warn().Err(err)
+		}
+		// fmt.Printf("%#v\n", scenes.CurrentScene)
+		fmt.Printf("%#v\n", scenes.Scenes[2])
+
+		// make buttons for these scenes
+		for i, scene := range scenes.Scenes {
+			log.Debug().Msg("Scene: " + scene.Name)
+			// default image
+
+			image = image_path + "/play.jpg"
+			if buttons_obs[scene.Name] != "" {
+				image = image_path + buttons_obs[scene.Name]
+			}
+
+			oaction := &actionhandlers.OBSSceneAction{Scene: scene.Name, Client: obs_client}
+			obutton, err := buttons.NewImageFileButton(image)
+			if err == nil {
+				obutton.SetActionHandler(oaction)
+				sd.AddButton(i + offset, obutton)
+			} else {
+				log.Warn().Err(err)
+				// use a text button
+				oopbutton := buttons.NewTextButton(scene.Name)
+				oopbutton.SetActionHandler(oaction)
+				sd.AddButton(i + offset, oopbutton)
+			}
+
+			// only need a few scenes
+			if i > 6 {
+				break
+			}
+		}
 	}
 
 	// Command
