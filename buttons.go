@@ -25,7 +25,13 @@ var mqtt_client mqtt.Client
 var obs_client obsws.Client
 var pulse *pulseaudio.Client
 
-var buttons_wemo map[int]string // button ID and Wemo device name
+type Wemo struct {
+	Name string
+	ImageOn string
+	ImageOff string
+}
+
+var buttons_wemo map[int]Wemo // button ID and Wemo device configs
 var buttons_obs map[string]string // scene name and image name
 
 // InitButtons sets up initial button prompts
@@ -43,10 +49,11 @@ func InitButtons() {
 		})
 	}
 
-	// WEMO plugs
-	buttons_wemo = make(map[int]string)
-	buttons_wemo[16] = "Christmas lights"
-	buttons_wemo[17] = "Thinking light"
+	// WEMO plugs (this should come from config)
+	buttons_wemo = make(map[int]Wemo)
+	// buttons_wemo[16] = Wemo{Name: "Christmas lights", ImageOn: "shelf-on.png", ImageOff: "shelf-off.png"}
+	buttons_wemo[16] = Wemo{Name: "Christmas lights", ImageOn: "play.jpg", ImageOff: "camera.png"}
+	buttons_wemo[17] = Wemo{Name: "Thinking light", ImageOn: "video-light-on.png", ImageOff: "video-light-off.png"}
 
 	go startWemoScan()
 
@@ -66,7 +73,7 @@ func InitButtons() {
 	cbutton.SetActionHandler(&actionhandlers.MQTTAction{Colour: color.RGBA{255, 255, 0, 255}, Client: mqtt_client})
 	sd.AddButton(10, cbutton)
 
-	// OBS
+	// OBS (this should come from config)
 	buttons_obs = make(map[string]string)
 	buttons_obs["Camera"] = "/camera.png"
 	buttons_obs["Screenshare"] = "/screen-and-cam.png"
@@ -228,17 +235,21 @@ func gotWemoDevice(device belkin.Device) {
 	log.Info().Msg("Found device " + device.FriendlyName)
 	log.Debug().Msg("Current device state: " + strconv.Itoa(state)) // 0, 1 or 8 (for standby)
 
-	for i, name := range buttons_wemo {
-		if name == device.FriendlyName {
-			// colour reflects state: green for on, red for off
-			colour := color.RGBA{255, 0, 50, 255}
+	for i, deets := range buttons_wemo {
+		log.Debug().Int("i", i).Msg(deets.Name)
+		if deets.Name == device.FriendlyName {
+			image := viper.GetString("buttons.images") + "/" + deets.ImageOff
 			if state == 1 {
-				colour = color.RGBA{20, 255, 50, 255}
+				image = viper.GetString("buttons.images") + "/" + deets.ImageOn
 			}
-			wemobutton := buttons.NewTextButtonWithColours(name, colour, color.RGBA{0, 0, 0, 255})
-			wemoaction := &actionhandlers.WemoAction{Device: device, State: device.BinaryState}
-			wemobutton.SetActionHandler(wemoaction)
-			sd.AddButton(i, wemobutton)
+			wemobutton, err := buttons.NewImageFileButton(image)
+			if err == nil {
+				wemoaction := &actionhandlers.WemoAction{Device: device, State: device.BinaryState, ImageOn: deets.ImageOn, ImageOff: deets.ImageOff}
+				wemobutton.SetActionHandler(wemoaction)
+				sd.AddButton(i, wemobutton)
+			} else {
+				log.Warn().Err(err)
+			}
 		}
 	}
 
