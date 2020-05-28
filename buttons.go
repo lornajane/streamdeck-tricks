@@ -26,12 +26,12 @@ var obs_client obsws.Client
 var pulse *pulseaudio.Client
 
 type Wemo struct {
-	Name string
-	ImageOn string
+	Name     string
+	ImageOn  string
 	ImageOff string
 }
 
-var buttons_wemo map[int]Wemo // button ID and Wemo device configs
+var buttons_wemo map[int]Wemo     // button ID and Wemo device configs
 var buttons_obs map[string]string // scene name and image name
 
 // InitButtons sets up initial button prompts
@@ -51,8 +51,7 @@ func InitButtons() {
 
 	// WEMO plugs (this should come from config)
 	buttons_wemo = make(map[int]Wemo)
-	// buttons_wemo[16] = Wemo{Name: "Christmas lights", ImageOn: "shelf-on.png", ImageOff: "shelf-off.png"}
-	buttons_wemo[16] = Wemo{Name: "Christmas lights", ImageOn: "play.jpg", ImageOff: "camera.png"}
+	buttons_wemo[16] = Wemo{Name: "Christmas lights", ImageOn: "shelf-on.png", ImageOff: "shelf-off.png"}
 	buttons_wemo[17] = Wemo{Name: "Thinking light", ImageOn: "video-light-on.png", ImageOff: "video-light-off.png"}
 
 	go startWemoScan()
@@ -79,8 +78,13 @@ func InitButtons() {
 	buttons_obs["Screenshare"] = "/screen-and-cam.png"
 	buttons_obs["Secrets"] = "/secrets.png"
 	buttons_obs["Offline"] = "/offline.png"
-	buttons_obs["Soon"] = "/soon.png"
-	buttons_obs["BRB"] = "/garble.png"
+	buttons_obs["layout-offline"] = "/offline.png"
+	buttons_obs["layout-starting"] = "/soon.png"
+	buttons_obs["layout-main"] = "/copresenters.png"
+	buttons_obs["layout-code-driver"] = "/my-screen.png"
+	buttons_obs["layout-code-remoter"] = "/their-screen.png"
+	buttons_obs["layout-secret"] = "/secrets.png"
+	buttons_obs["layout-main-solo"] = "/camera.png"
 
 	if obs_client.Connected() == true {
 		// offset for what number button to start at
@@ -102,22 +106,30 @@ func InitButtons() {
 			log.Debug().Msg("Scene: " + scene.Name)
 			// default image
 
-			image = image_path + "/play.jpg"
 			if buttons_obs[scene.Name] != "" {
 				image = image_path + buttons_obs[scene.Name]
 			}
 
 			oaction := &actionhandlers.OBSSceneAction{Scene: scene.Name, Client: obs_client}
-			obutton, err := buttons.NewImageFileButton(image)
-			if err == nil {
-				obutton.SetActionHandler(oaction)
-				sd.AddButton(i + offset, obutton)
+			if image != "" {
+				// try to make an image button
+				obutton, err := buttons.NewImageFileButton(image)
+				if err == nil {
+					obutton.SetActionHandler(oaction)
+					sd.AddButton(i+offset, obutton)
+				} else {
+					image = image_path + "/play.jpg"
+					obutton, err := buttons.NewImageFileButton(image)
+					if err == nil {
+						obutton.SetActionHandler(oaction)
+						sd.AddButton(i+offset, obutton)
+					}
+				}
 			} else {
-				log.Warn().Err(err)
 				// use a text button
 				oopbutton := buttons.NewTextButton(scene.Name)
 				oopbutton.SetActionHandler(oaction)
-				sd.AddButton(i + offset, oopbutton)
+				sd.AddButton(i+offset, oopbutton)
 			}
 
 			// only need a few scenes
@@ -222,8 +234,13 @@ func testFatal(e error, msg string) {
 
 // Wemo functions from magicmonkey modified library
 func startWemoScan() {
-	err := belkin.ScanWithCallback(belkin.DTInsight, 10, gotWemoDevice)
-	fmt.Println(err)
+	device1, err1 := belkin.NewDeviceFromURL("http://10.1.0.170:49153/setup.xml", 2*time.Second)
+	fmt.Println(err1)
+	gotWemoDevice(*device1)
+	device2, err2 := belkin.NewDeviceFromURL("http://10.1.0.117:49153/setup.xml", 2*time.Second)
+	fmt.Println(err2)
+	gotWemoDevice(*device2)
+	// err := belkin.ScanWithCallback(belkin.DTInsight, 10, gotWemoDevice)
 }
 
 func gotWemoDevice(device belkin.Device) {

@@ -12,7 +12,7 @@ require (
 	github.com/go-home-iot/gossdp v0.0.0-20160327224030-49870f3db38d // indirect
 	github.com/godbus/dbus v4.1.0+incompatible
 	github.com/magicmonkey/go-streamdeck v0.0.0-00010101000000-000000000000
-	github.com/magicmonkey/gobelkinwemo v0.0.0-20200524103155-7b3470825b3e
+	github.com/magicmonkey/gobelkinwemo v0.0.0-20200525111057-5256eb3ea3c5
 	github.com/rs/zerolog v1.18.0
 	github.com/spf13/viper v1.7.0
 	github.com/sqp/pulseaudio v0.0.0-20180916175200-29ac6bfa231c
