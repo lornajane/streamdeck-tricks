@@ -3,11 +3,12 @@ package main
 import (
 	"fmt"
 	"image/color"
+	"io/ioutil"
 	"os/exec"
 	"strconv"
 	"time"
 
-	"github.com/christopher-dG/go-obs-websocket"
+	obsws "github.com/christopher-dG/go-obs-websocket"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/lornajane/streamdeck-tricks/actionhandlers"
 	"github.com/magicmonkey/go-streamdeck"
@@ -23,16 +24,24 @@ import (
 
 var mqtt_client mqtt.Client
 var obs_client obsws.Client
+var obs_current_scene string
 var pulse *pulseaudio.Client
 
 type Wemo struct {
-	Name     string
-	ImageOn  string
-	ImageOff string
+	Name     string `mapstructure:"name"`
+	ButtonId int    `mapstructure:"button"`
+	ImageOn  string `mapstructure:"image_on"`
+	ImageOff string `mapstructure:"image_off"`
 }
 
-var buttons_wemo map[int]Wemo     // button ID and Wemo device configs
+var buttons_wemo map[string]Wemo  // button ID and Wemo device configs
 var buttons_obs map[string]string // scene name and image name
+
+type LEDColour struct {
+	Red   uint8 `mapstructure:"red"`
+	Green uint8 `mapstructure:"green"`
+	Blue  uint8 `mapstructure:"blue"`
+}
 
 // InitButtons sets up initial button prompts
 func InitButtons() {
@@ -49,42 +58,40 @@ func InitButtons() {
 		})
 	}
 
-	// WEMO plugs (this should come from config)
-	buttons_wemo = make(map[int]Wemo)
-	buttons_wemo[16] = Wemo{Name: "Christmas lights", ImageOn: "shelf-on.png", ImageOff: "shelf-off.png"}
-	buttons_wemo[17] = Wemo{Name: "Thinking light", ImageOn: "video-light-on.png", ImageOff: "video-light-off.png"}
-
-	go startWemoScan()
-
 	// Get some Audio Setup
 	pulse = getPulseConnection()
 
+	// WEMO plugs
+	viper.UnmarshalKey("wemo_devices", &buttons_wemo)
+	go startWemoScan()
+
 	// shelf lights
-	abutton := buttons.NewColourButton(color.RGBA{255, 0, 255, 255})
-	abutton.SetActionHandler(&actionhandlers.MQTTAction{Colour: color.RGBA{255, 0, 255, 255}, Client: mqtt_client})
-	sd.AddButton(8, abutton)
+	var lights []LEDColour
+	viper.UnmarshalKey("shelf_lights", &lights)
+	button_index := 8
 
-	bbutton := buttons.NewColourButton(color.RGBA{0, 0, 255, 255})
-	bbutton.SetActionHandler(&actionhandlers.MQTTAction{Colour: color.RGBA{0, 0, 255, 255}, Client: mqtt_client})
-	sd.AddButton(9, bbutton)
-
-	cbutton := buttons.NewColourButton(color.RGBA{255, 255, 0, 255})
-	cbutton.SetActionHandler(&actionhandlers.MQTTAction{Colour: color.RGBA{255, 255, 0, 255}, Client: mqtt_client})
-	sd.AddButton(10, cbutton)
+	for _, light := range lights {
+		colour := color.RGBA{light.Red, light.Green, light.Blue, 255}
+		lbutton := buttons.NewColourButton(colour)
+		lbutton.SetActionHandler(&actionhandlers.MQTTAction{Colour: colour, Client: mqtt_client})
+		sd.AddButton(button_index, lbutton)
+		button_index = button_index + 1
+	}
 
 	// OBS (this should come from config)
 	buttons_obs = make(map[string]string)
 	buttons_obs["Camera"] = "/camera.png"
 	buttons_obs["Screenshare"] = "/screen-and-cam.png"
+	buttons_obs["layout-main-solo"] = "/camera.png"
+	buttons_obs["layout-code-solo"] = "/screen-and-cam.png"
 	buttons_obs["Secrets"] = "/secrets.png"
 	buttons_obs["Offline"] = "/offline.png"
 	buttons_obs["layout-offline"] = "/offline.png"
 	buttons_obs["layout-starting"] = "/soon.png"
 	buttons_obs["layout-main"] = "/copresenters.png"
-	buttons_obs["layout-code-driver"] = "/my-screen.png"
 	buttons_obs["layout-code-remoter"] = "/their-screen.png"
 	buttons_obs["layout-secret"] = "/secrets.png"
-	buttons_obs["layout-main-solo"] = "/camera.png"
+	buttons_obs["layout-android"] = "/android-and-cam.png"
 
 	if obs_client.Connected() == true {
 		// offset for what number button to start at
@@ -99,12 +106,12 @@ func InitButtons() {
 			log.Warn().Err(err)
 		}
 		// fmt.Printf("%#v\n", scenes.CurrentScene)
-		fmt.Printf("%#v\n", scenes.Scenes[2])
+		// fmt.Printf("%#v\n", scenes.Scenes[2])
 
 		// make buttons for these scenes
 		for i, scene := range scenes.Scenes {
 			log.Debug().Msg("Scene: " + scene.Name)
-			// default image
+			image = ""
 
 			if buttons_obs[scene.Name] != "" {
 				image = image_path + buttons_obs[scene.Name]
@@ -140,25 +147,30 @@ func InitButtons() {
 	}
 
 	// Command
-	eyesbutton := buttons.NewTextButton("Eyes")
-	eyesaction := &sdactionhandlers.CustomAction{}
-	eyesaction.SetHandler(func(btn streamdeck.Button) {
-		cmd := exec.Command("xeyes")
-		cmd.Start()
+	shotbutton, _ := buttons.NewImageFileButton(viper.GetString("buttons.images") + "/screenshot.png")
+	shotaction := &sdactionhandlers.CustomAction{}
+	shotaction.SetHandler(func(btn streamdeck.Button) {
+		go takeScreenshot()
 	})
-	eyesbutton.SetActionHandler(eyesaction)
-	sd.AddButton(7, eyesbutton)
+	shotbutton.SetActionHandler(shotaction)
+	sd.AddButton(15, shotbutton)
+}
 
-	/*
-		// example of multiple actions
-		thisActionHandler := &sdactionhandlers.ChainedAction{}
-		thisActionHandler.AddAction(&sdactionhandlers.TextPrintAction{Label: "Purple press"})
-		thisActionHandler.AddAction(&sdactionhandlers.ColourChangeAction{NewColour: color.RGBA{255, 0, 0, 255}})
-		multiActionButton := buttons.NewColourButton(color.RGBA{255, 0, 255, 255})
-		multiActionButton.SetActionHandler(thisActionHandler)
-		sd.AddButton(0, multiActionButton)
-	*/
+func takeScreenshot() {
+	log.Debug().Msg("Taking screenshot with delay...")
+	cmd := exec.Command("/usr/bin/gnome-screenshot", "-w", "-d", "2")
+	stderr, _ := cmd.StderrPipe()
+	stdout, _ := cmd.StdoutPipe()
+	if err := cmd.Run(); err != nil {
+		log.Warn().Err(err)
+	}
 
+	slurp, _ := ioutil.ReadAll(stderr)
+	fmt.Printf("%s\n", slurp)
+	slurp2, _ := ioutil.ReadAll(stdout)
+	fmt.Printf("%s\n", slurp2)
+
+	log.Debug().Msg("Taken screenshot")
 }
 
 func connectMQTT() mqtt.Client {
@@ -235,11 +247,19 @@ func testFatal(e error, msg string) {
 // Wemo functions from magicmonkey modified library
 func startWemoScan() {
 	device1, err1 := belkin.NewDeviceFromURL("http://10.1.0.170:49153/setup.xml", 2*time.Second)
-	fmt.Println(err1)
-	gotWemoDevice(*device1)
+	if err1 != nil {
+		log.Warn().Msg("Device 170 not found")
+	} else {
+		gotWemoDevice(*device1)
+	}
+
 	device2, err2 := belkin.NewDeviceFromURL("http://10.1.0.117:49153/setup.xml", 2*time.Second)
-	fmt.Println(err2)
-	gotWemoDevice(*device2)
+	if err2 != nil {
+		log.Warn().Msg("Device 117 not found")
+	} else {
+		gotWemoDevice(*device2)
+	}
+	// the scan is the official approach but wasn't very reliable
 	// err := belkin.ScanWithCallback(belkin.DTInsight, 10, gotWemoDevice)
 }
 
@@ -252,8 +272,8 @@ func gotWemoDevice(device belkin.Device) {
 	log.Info().Msg("Found device " + device.FriendlyName)
 	log.Debug().Msg("Current device state: " + strconv.Itoa(state)) // 0, 1 or 8 (for standby)
 
-	for i, deets := range buttons_wemo {
-		log.Debug().Int("i", i).Msg(deets.Name)
+	for _, deets := range buttons_wemo {
+		log.Debug().Int("button id", deets.ButtonId).Msg(deets.Name)
 		if deets.Name == device.FriendlyName {
 			image := viper.GetString("buttons.images") + "/" + deets.ImageOff
 			if state == 1 {
@@ -263,7 +283,7 @@ func gotWemoDevice(device belkin.Device) {
 			if err == nil {
 				wemoaction := &actionhandlers.WemoAction{Device: device, State: device.BinaryState, ImageOn: deets.ImageOn, ImageOff: deets.ImageOff}
 				wemobutton.SetActionHandler(wemoaction)
-				sd.AddButton(i, wemobutton)
+				sd.AddButton(deets.ButtonId, wemobutton)
 			} else {
 				log.Warn().Err(err)
 			}
