@@ -14,6 +14,7 @@ import (
 	"github.com/magicmonkey/go-streamdeck"
 	sdactionhandlers "github.com/magicmonkey/go-streamdeck/actionhandlers"
 	buttons "github.com/magicmonkey/go-streamdeck/buttons"
+	sddecorators "github.com/magicmonkey/go-streamdeck/decorators"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 
@@ -27,15 +28,25 @@ var obs_client obsws.Client
 var obs_current_scene string
 var pulse *pulseaudio.Client
 
-type Wemo struct {
+type WemoDevice struct {
 	Name     string `mapstructure:"name"`
 	ButtonId int    `mapstructure:"button"`
 	ImageOn  string `mapstructure:"image_on"`
 	ImageOff string `mapstructure:"image_off"`
 }
 
-var buttons_wemo map[string]Wemo  // button ID and Wemo device configs
-var buttons_obs map[string]string // scene name and image name
+type ObsScene struct {
+	Name     string
+	Image    string
+	ButtonId int
+}
+
+func (scene *ObsScene) SetButtonId(id int) {
+	scene.ButtonId = id
+}
+
+var buttons_wemo map[string]WemoDevice // button ID and Wemo device configs
+var buttons_obs map[string]*ObsScene   // scene name and image name
 
 type LEDColour struct {
 	Red   uint8 `mapstructure:"red"`
@@ -54,7 +65,21 @@ func InitButtons() {
 	if obs_client.Connected() == true {
 		obs_client.AddEventHandler("SwitchScenes", func(e obsws.Event) {
 			// Make sure to assert the actual event type.
-			log.Info().Msg("new scene: " + e.(obsws.SwitchScenesEvent).SceneName)
+			scene := e.(obsws.SwitchScenesEvent).SceneName
+			log.Info().Msg("Old scene: " + obs_current_scene)
+			// undecorate the old
+			if oldb, ok := buttons_obs[obs_current_scene]; ok {
+				log.Info().Int("button", oldb.ButtonId).Msg("Clear original button decoration")
+				sd.UnsetDecorator(oldb.ButtonId)
+			}
+			// decorate the new
+			log.Info().Msg("New scene: " + scene)
+			if eventb, ok := buttons_obs[scene]; ok {
+				decorator2 := sddecorators.NewBorder(5, color.RGBA{255, 0, 0, 255})
+				log.Info().Int("button", eventb.ButtonId).Msg("Highlight new scene button")
+				sd.SetDecorator(eventb.ButtonId, decorator2)
+			}
+			obs_current_scene = scene
 		})
 	}
 
@@ -79,19 +104,18 @@ func InitButtons() {
 	}
 
 	// OBS (this should come from config)
-	buttons_obs = make(map[string]string)
-	buttons_obs["Camera"] = "/camera.png"
-	buttons_obs["Screenshare"] = "/screen-and-cam.png"
-	buttons_obs["layout-main-solo"] = "/camera.png"
-	buttons_obs["layout-code-solo"] = "/screen-and-cam.png"
-	buttons_obs["Secrets"] = "/secrets.png"
-	buttons_obs["Offline"] = "/offline.png"
-	buttons_obs["layout-offline"] = "/offline.png"
-	buttons_obs["layout-starting"] = "/soon.png"
-	buttons_obs["layout-main"] = "/copresenters.png"
-	buttons_obs["layout-code-remoter"] = "/their-screen.png"
-	buttons_obs["layout-secret"] = "/secrets.png"
-	buttons_obs["layout-android"] = "/android-and-cam.png"
+	buttons_obs = make(map[string]*ObsScene)
+	buttons_obs["Camera"] = &ObsScene{Name: "Camera", Image: "/camera.png"}
+	buttons_obs["Screenshare"] = &ObsScene{Name: "Screenshare", Image: "/screen-and-cam.png"}
+	buttons_obs["Main-Solo"] = &ObsScene{Name: "Main-Solo", Image: "/camera.png"}
+	buttons_obs["Screenshare-Solo"] = &ObsScene{Name: "Screenshare-Solo", Image: "/screen-and-cam.png"}
+	buttons_obs["Secrets"] = &ObsScene{Name: "Secrets", Image: "/secrets.png"}
+	buttons_obs["Offline"] = &ObsScene{Name: "Offline", Image: "/offline.png"}
+	// buttons_obs["Soon"] = &ObsScene{Name: "Soon", Image: "/soon.png"}
+	buttons_obs["Main-Duet"] = &ObsScene{Name: "Main-Duet", Image: "/copresenters.png"}
+	buttons_obs["Screenshare-Cohost"] = &ObsScene{Name: "Screenshare-Cohost", Image: "/their-screen.png"}
+	buttons_obs["Screenshare-Localhost"] = &ObsScene{Name: "Screenshare-Localhost", Image: "/my-screen.png"}
+	buttons_obs["layout-android"] = &ObsScene{Name: "layout-android", Image: "/android-and-cam.png"}
 
 	if obs_client.Connected() == true {
 		// offset for what number button to start at
@@ -99,7 +123,7 @@ func InitButtons() {
 		image_path := viper.GetString("buttons.images")
 		var image string
 
-		// what scenes do we have? (max 8)
+		// what scenes do we have? (max 8 for the top row of buttons)
 		scene_req := obsws.NewGetSceneListRequest()
 		scenes, err := scene_req.SendReceive(obs_client)
 		if err != nil {
@@ -112,24 +136,35 @@ func InitButtons() {
 		for i, scene := range scenes.Scenes {
 			log.Debug().Msg("Scene: " + scene.Name)
 			image = ""
+			oaction := &actionhandlers.OBSSceneAction{Scene: scene.Name, Client: obs_client}
 
-			if buttons_obs[scene.Name] != "" {
-				image = image_path + buttons_obs[scene.Name]
+			if s, ok := buttons_obs[scene.Name]; ok {
+				if s.Image != "" {
+					image = image_path + s.Image
+				}
+			} else {
+				// there wasn't an entry in the buttons for this scene so add one
+				buttons_obs[scene.Name] = &ObsScene{}
 			}
 
-			oaction := &actionhandlers.OBSSceneAction{Scene: scene.Name, Client: obs_client}
 			if image != "" {
 				// try to make an image button
+
 				obutton, err := buttons.NewImageFileButton(image)
 				if err == nil {
 					obutton.SetActionHandler(oaction)
 					sd.AddButton(i+offset, obutton)
+					// store which button we just set
+					buttons_obs[scene.Name].SetButtonId(i + offset)
 				} else {
+					// something went wrong with the image, use a default one
 					image = image_path + "/play.jpg"
 					obutton, err := buttons.NewImageFileButton(image)
 					if err == nil {
 						obutton.SetActionHandler(oaction)
 						sd.AddButton(i+offset, obutton)
+						// store which button we just set
+						buttons_obs[scene.Name].SetButtonId(i + offset)
 					}
 				}
 			} else {
@@ -137,6 +172,8 @@ func InitButtons() {
 				oopbutton := buttons.NewTextButton(scene.Name)
 				oopbutton.SetActionHandler(oaction)
 				sd.AddButton(i+offset, oopbutton)
+				// store which button we just set
+				buttons_obs[scene.Name].SetButtonId(i + offset)
 			}
 
 			// only need a few scenes

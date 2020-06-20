@@ -6,6 +6,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	streamdeck "github.com/magicmonkey/go-streamdeck"
+	_ "github.com/magicmonkey/go-streamdeck/devices"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
