@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os/exec"
 	"strconv"
+	"strings"
 	"time"
 
 	obsws "github.com/christopher-dG/go-obs-websocket"
@@ -36,8 +37,8 @@ type WemoDevice struct {
 }
 
 type ObsScene struct {
-	Name     string
-	Image    string
+	Name     string `mapstructure:"name"`
+	Image    string `mapstructure:"image"`
 	ButtonId int
 }
 
@@ -103,19 +104,9 @@ func InitButtons() {
 		button_index = button_index + 1
 	}
 
-	// OBS (this should come from config)
+	// OBS Scenes to Buttons
 	buttons_obs = make(map[string]*ObsScene)
-	buttons_obs["Camera"] = &ObsScene{Name: "Camera", Image: "/camera.png"}
-	buttons_obs["Screenshare"] = &ObsScene{Name: "Screenshare", Image: "/screen-and-cam.png"}
-	buttons_obs["Main-Solo"] = &ObsScene{Name: "Main-Solo", Image: "/camera.png"}
-	buttons_obs["Screenshare-Solo"] = &ObsScene{Name: "Screenshare-Solo", Image: "/screen-and-cam.png"}
-	buttons_obs["Secrets"] = &ObsScene{Name: "Secrets", Image: "/secrets.png"}
-	buttons_obs["Offline"] = &ObsScene{Name: "Offline", Image: "/offline.png"}
-	// buttons_obs["Soon"] = &ObsScene{Name: "Soon", Image: "/soon.png"}
-	buttons_obs["Main-Duet"] = &ObsScene{Name: "Main-Duet", Image: "/copresenters.png"}
-	buttons_obs["Screenshare-Cohost"] = &ObsScene{Name: "Screenshare-Cohost", Image: "/their-screen.png"}
-	buttons_obs["Screenshare-Localhost"] = &ObsScene{Name: "Screenshare-Localhost", Image: "/my-screen.png"}
-	buttons_obs["layout-android"] = &ObsScene{Name: "layout-android", Image: "/android-and-cam.png"}
+	err := viper.UnmarshalKey("obs_scenes", &buttons_obs)
 
 	if obs_client.Connected() == true {
 		// offset for what number button to start at
@@ -137,14 +128,15 @@ func InitButtons() {
 			log.Debug().Msg("Scene: " + scene.Name)
 			image = ""
 			oaction := &actionhandlers.OBSSceneAction{Scene: scene.Name, Client: obs_client}
+			sceneName := strings.ToLower(scene.Name)
 
-			if s, ok := buttons_obs[scene.Name]; ok {
+			if s, ok := buttons_obs[sceneName]; ok {
 				if s.Image != "" {
 					image = image_path + s.Image
 				}
 			} else {
 				// there wasn't an entry in the buttons for this scene so add one
-				buttons_obs[scene.Name] = &ObsScene{}
+				buttons_obs[sceneName] = &ObsScene{}
 			}
 
 			if image != "" {
@@ -155,7 +147,7 @@ func InitButtons() {
 					obutton.SetActionHandler(oaction)
 					sd.AddButton(i+offset, obutton)
 					// store which button we just set
-					buttons_obs[scene.Name].SetButtonId(i + offset)
+					buttons_obs[sceneName].SetButtonId(i + offset)
 				} else {
 					// something went wrong with the image, use a default one
 					image = image_path + "/play.jpg"
@@ -164,7 +156,7 @@ func InitButtons() {
 						obutton.SetActionHandler(oaction)
 						sd.AddButton(i+offset, obutton)
 						// store which button we just set
-						buttons_obs[scene.Name].SetButtonId(i + offset)
+						buttons_obs[sceneName].SetButtonId(i + offset)
 					}
 				}
 			} else {
@@ -173,7 +165,7 @@ func InitButtons() {
 				oopbutton.SetActionHandler(oaction)
 				sd.AddButton(i+offset, oopbutton)
 				// store which button we just set
-				buttons_obs[scene.Name].SetButtonId(i + offset)
+				buttons_obs[sceneName].SetButtonId(i + offset)
 			}
 
 			// only need a few scenes
