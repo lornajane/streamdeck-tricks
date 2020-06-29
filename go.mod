@@ -11,6 +11,7 @@ require (
 	github.com/go-home-iot/belkin v0.0.0-20161209001652-7b62ec854e95
 	github.com/go-home-iot/gossdp v0.0.0-20160327224030-49870f3db38d // indirect
 	github.com/godbus/dbus v4.1.0+incompatible
+	github.com/hypebeast/go-osc v0.0.0-20200115085105-85fee7fed692
 	github.com/magicmonkey/go-streamdeck v0.0.0-00010101000000-000000000000
 	github.com/magicmonkey/gobelkinwemo v0.0.0-20200525111057-5256eb3ea3c5
 	github.com/rs/zerolog v1.18.0

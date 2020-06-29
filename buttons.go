@@ -106,7 +106,7 @@ func InitButtons() {
 
 	// OBS Scenes to Buttons
 	buttons_obs = make(map[string]*ObsScene)
-	err := viper.UnmarshalKey("obs_scenes", &buttons_obs)
+	viper.UnmarshalKey("obs_scenes", &buttons_obs)
 
 	if obs_client.Connected() == true {
 		// offset for what number button to start at
@@ -183,6 +183,14 @@ func InitButtons() {
 	})
 	shotbutton.SetActionHandler(shotaction)
 	sd.AddButton(15, shotbutton)
+
+	// Sounds (bottom row, button 24+)
+	sound_offset := 24
+	for i := 0; i < 4; i++ {
+		audiobutton := buttons.NewTextButton(strconv.Itoa(i + 1))
+		audiobutton.SetActionHandler(&actionhandlers.OSCAction{Track: i + 1})
+		sd.AddButton(sound_offset+i, audiobutton)
+	}
 }
 
 func takeScreenshot() {
