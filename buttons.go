@@ -7,7 +7,6 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-	"time"
 
 	obsws "github.com/christopher-dG/go-obs-websocket"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -20,7 +19,6 @@ import (
 	"github.com/spf13/viper"
 
 	_ "github.com/godbus/dbus"
-	belkin "github.com/magicmonkey/gobelkinwemo"
 	"github.com/sqp/pulseaudio"
 )
 
@@ -29,7 +27,7 @@ var obs_client obsws.Client
 var obs_current_scene string
 var pulse *pulseaudio.Client
 
-type WemoDevice struct {
+type PlugDevice struct {
 	Name     string `mapstructure:"name"`
 	ButtonId int    `mapstructure:"button"`
 	ImageOn  string `mapstructure:"image_on"`
@@ -46,7 +44,7 @@ func (scene *ObsScene) SetButtonId(id int) {
 	scene.ButtonId = id
 }
 
-var buttons_wemo map[string]WemoDevice // button ID and Wemo device configs
+var buttons_plug map[string]PlugDevice // MQTT-enabled on/off plugs
 var buttons_obs map[string]*ObsScene   // scene name and image name
 
 type LEDColour struct {
@@ -87,9 +85,21 @@ func InitButtons() {
 	// Get some Audio Setup
 	pulse = getPulseConnection()
 
-	// WEMO plugs
-	viper.UnmarshalKey("wemo_devices", &buttons_wemo)
-	go startWemoScan()
+	// on/off plugs
+	viper.UnmarshalKey("plug_devices", &buttons_plug)
+	for _, deets := range buttons_plug {
+		fmt.Println(deets.Name)
+		// assume off, we can't get state
+		image := viper.GetString("buttons.images") + "/" + deets.ImageOff
+		plugbutton, err := buttons.NewImageFileButton(image)
+		if err == nil {
+			plugaction := &actionhandlers.PlugAction{Client: mqtt_client, State: 0, ImageOn: deets.ImageOn, ImageOff: deets.ImageOff}
+			plugbutton.SetActionHandler(plugaction)
+			sd.AddButton(deets.ButtonId, plugbutton)
+		} else {
+			log.Warn().Err(err)
+		}
+	}
 
 	// shelf lights
 	var lights []LEDColour
@@ -279,52 +289,4 @@ func testFatal(e error, msg string) {
 	if e != nil {
 		log.Warn().Err(e).Msg(msg)
 	}
-}
-
-// Wemo functions from magicmonkey modified library
-func startWemoScan() {
-	device1, err1 := belkin.NewDeviceFromURL("http://10.1.0.170:49153/setup.xml", 2*time.Second)
-	if err1 != nil {
-		log.Warn().Msg("Device 170 not found")
-	} else {
-		gotWemoDevice(*device1)
-	}
-
-	device2, err2 := belkin.NewDeviceFromURL("http://10.1.0.117:49153/setup.xml", 2*time.Second)
-	if err2 != nil {
-		log.Warn().Msg("Device 117 not found")
-	} else {
-		gotWemoDevice(*device2)
-	}
-	// the scan is the official approach but wasn't very reliable
-	// err := belkin.ScanWithCallback(belkin.DTInsight, 10, gotWemoDevice)
-}
-
-func gotWemoDevice(device belkin.Device) {
-	device.Load(1 * time.Second)
-	state, err := device.FetchBinaryState(1 * time.Second)
-	if err != nil {
-		log.Warn().Err(err)
-	}
-	log.Info().Msg("Found device " + device.FriendlyName)
-	log.Debug().Msg("Current device state: " + strconv.Itoa(state)) // 0, 1 or 8 (for standby)
-
-	for _, deets := range buttons_wemo {
-		log.Debug().Int("button id", deets.ButtonId).Msg(deets.Name)
-		if deets.Name == device.FriendlyName {
-			image := viper.GetString("buttons.images") + "/" + deets.ImageOff
-			if state == 1 {
-				image = viper.GetString("buttons.images") + "/" + deets.ImageOn
-			}
-			wemobutton, err := buttons.NewImageFileButton(image)
-			if err == nil {
-				wemoaction := &actionhandlers.WemoAction{Device: device, State: device.BinaryState, ImageOn: deets.ImageOn, ImageOff: deets.ImageOff}
-				wemobutton.SetActionHandler(wemoaction)
-				sd.AddButton(deets.ButtonId, wemobutton)
-			} else {
-				log.Warn().Err(err)
-			}
-		}
-	}
-
 }
