@@ -9,6 +9,7 @@ import (
 
 type PlugAction struct {
 	Client   mqtt.Client
+	Device	 string
 	State    int
 	ImageOn  string
 	ImageOff string
@@ -20,13 +21,13 @@ func (action *PlugAction) Pressed(btn streamdeck.Button) {
 	// Toggle! Are we on? Turn off! Not on? Turn on!
 	if action.State == 1 {
 		// on! Turn off
-		token := action.Client.Publish("/house/plug/shelf", 0, false, "0")
+		token := action.Client.Publish("/house/plug/" + action.Device, 0, false, "0")
 		token.Wait()
 		imagebutton.SetFilePath(viper.GetString("buttons.images") + "/" + action.ImageOff)
 		action.State = 0
 	} else {
 		// off! So turn on
-		token := action.Client.Publish("/house/plug/shelf", 0, false, "1")
+		token := action.Client.Publish("/house/plug/" + action.Device, 0, false, "1")
 		token.Wait()
 		imagebutton.SetFilePath(viper.GetString("buttons.images") + "/" + action.ImageOn)
 		action.State = 1

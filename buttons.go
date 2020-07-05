@@ -87,13 +87,13 @@ func InitButtons() {
 
 	// on/off plugs
 	viper.UnmarshalKey("plug_devices", &buttons_plug)
-	for _, deets := range buttons_plug {
+	for device, deets := range buttons_plug {
 		fmt.Println(deets.Name)
 		// assume off, we can't get state
 		image := viper.GetString("buttons.images") + "/" + deets.ImageOff
 		plugbutton, err := buttons.NewImageFileButton(image)
 		if err == nil {
-			plugaction := &actionhandlers.PlugAction{Client: mqtt_client, State: 0, ImageOn: deets.ImageOn, ImageOff: deets.ImageOff}
+			plugaction := &actionhandlers.PlugAction{Client: mqtt_client, Device: device, State: 0, ImageOn: deets.ImageOn, ImageOff: deets.ImageOff}
 			plugbutton.SetActionHandler(plugaction)
 			sd.AddButton(deets.ButtonId, plugbutton)
 		} else {
