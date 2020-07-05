@@ -64,7 +64,7 @@ func InitButtons() {
 	if obs_client.Connected() == true {
 		obs_client.AddEventHandler("SwitchScenes", func(e obsws.Event) {
 			// Make sure to assert the actual event type.
-			scene := e.(obsws.SwitchScenesEvent).SceneName
+			scene := strings.ToLower(e.(obsws.SwitchScenesEvent).SceneName)
 			log.Info().Msg("Old scene: " + obs_current_scene)
 			// undecorate the old
 			if oldb, ok := buttons_obs[obs_current_scene]; ok {
@@ -130,8 +130,7 @@ func InitButtons() {
 		if err != nil {
 			log.Warn().Err(err)
 		}
-		// fmt.Printf("%#v\n", scenes.CurrentScene)
-		// fmt.Printf("%#v\n", scenes.Scenes[2])
+		obs_current_scene = strings.ToLower(scenes.CurrentScene)
 
 		// make buttons for these scenes
 		for i, scene := range scenes.Scenes {
