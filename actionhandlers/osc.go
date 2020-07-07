@@ -1,11 +1,11 @@
 package actionhandlers
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/hypebeast/go-osc/osc"
 	streamdeck "github.com/magicmonkey/go-streamdeck"
+	"github.com/rs/zerolog/log"
 )
 
 type OSCAction struct {
@@ -18,5 +18,7 @@ func (action *OSCAction) Pressed(btn streamdeck.Button) {
 	msg := osc.NewMessage("/castersoundboard/board/Twitch/player/" + strconv.Itoa(action.Track) + "/modify/play_state/play")
 	msg.Append(int32(1))
 	err := client.Send(msg)
-	fmt.Printf("%#v\n", err)
+	if err != nil {
+		log.Error().Err(err)
+	}
 }

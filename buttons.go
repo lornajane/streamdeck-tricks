@@ -5,7 +5,6 @@ import (
 	"image/color"
 	"io/ioutil"
 	"os/exec"
-	"strconv"
 	"strings"
 
 	obsws "github.com/christopher-dG/go-obs-websocket"
@@ -46,6 +45,7 @@ func (scene *ObsScene) SetButtonId(id int) {
 
 var buttons_plug map[string]PlugDevice // MQTT-enabled on/off plugs
 var buttons_obs map[string]*ObsScene   // scene name and image name
+var buttons_osc map[int]string         // just the track ID and name
 
 type LEDColour struct {
 	Red   uint8 `mapstructure:"red"`
@@ -88,7 +88,6 @@ func InitButtons() {
 	// on/off plugs
 	viper.UnmarshalKey("plug_devices", &buttons_plug)
 	for device, deets := range buttons_plug {
-		fmt.Println(deets.Name)
 		// assume off, we can't get state
 		image := viper.GetString("buttons.images") + "/" + deets.ImageOff
 		plugbutton, err := buttons.NewImageFileButton(image)
@@ -182,6 +181,14 @@ func InitButtons() {
 				break
 			}
 		}
+
+		// highlight the active scene
+		if eventb, ok := buttons_obs[obs_current_scene]; ok {
+			decorator2 := sddecorators.NewBorder(5, color.RGBA{255, 0, 0, 255})
+			log.Info().Int("button", eventb.ButtonId).Msg("Highlight current scene")
+			sd.SetDecorator(eventb.ButtonId, decorator2)
+		}
+
 	}
 
 	// Command
@@ -193,13 +200,9 @@ func InitButtons() {
 	shotbutton.SetActionHandler(shotaction)
 	sd.AddButton(15, shotbutton)
 
-	// Sounds (bottom row, button 24+)
-	sound_offset := 24
-	for i := 0; i < 4; i++ {
-		audiobutton := buttons.NewTextButton(strconv.Itoa(i + 1))
-		audiobutton.SetActionHandler(&actionhandlers.OSCAction{Track: i + 1})
-		sd.AddButton(sound_offset+i, audiobutton)
-	}
+	// send sync to get track info, event handler sets buttons as tracks are announced
+	buttons_osc = make(map[int]string)
+	osc_send_sync()
 }
 
 func takeScreenshot() {

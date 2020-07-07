@@ -49,6 +49,8 @@ func main() {
 		panic(err)
 	}
 
+	osc_server()
+
 	InitButtons()
 
 	log.Info().Msg("Up and running")
