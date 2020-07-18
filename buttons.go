@@ -30,7 +30,6 @@ func (scene *ObsScene) SetButtonId(id int) {
 }
 
 var buttons_obs map[string]*ObsScene // scene name and image name
-var buttons_osc map[int]string       // just the track ID and name
 
 // InitButtons sets up initial button prompts
 func InitButtons() {
@@ -137,9 +136,6 @@ func InitButtons() {
 
 	}
 
-	// send sync to get track info, event handler sets buttons as tracks are announced
-	buttons_osc = make(map[int]string)
-	osc_send_sync()
 }
 
 func connectOBS() obsws.Client {

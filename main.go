@@ -5,9 +5,9 @@ import (
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/lornajane/streamdeck-tricks/addons"
 	streamdeck "github.com/magicmonkey/go-streamdeck"
 	_ "github.com/magicmonkey/go-streamdeck/devices"
-	"github.com/lornajane/streamdeck-tricks/addons"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
@@ -50,8 +50,6 @@ func main() {
 		panic(err)
 	}
 
-	osc_server()
-
 	// init MQTT
 	mqtt_addon := addons.MqttThing{SD: sd}
 	mqtt_addon.Init()
@@ -61,6 +59,11 @@ func main() {
 	screenshot_addon := addons.Screenshot{SD: sd}
 	screenshot_addon.Init()
 	screenshot_addon.Buttons()
+
+	// set up soundcaster
+	caster_addon := addons.Caster{SD: sd}
+	caster_addon.Init()
+	caster_addon.Buttons()
 
 	InitButtons()
 

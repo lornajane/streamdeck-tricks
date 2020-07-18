@@ -1,4 +1,4 @@
-package main
+package addons
 
 import (
 	"image/color"
@@ -7,16 +7,32 @@ import (
 
 	"github.com/hypebeast/go-osc/osc"
 	"github.com/lornajane/streamdeck-tricks/actionhandlers"
+	"github.com/magicmonkey/go-streamdeck"
 	buttons "github.com/magicmonkey/go-streamdeck/buttons"
 	sddecorators "github.com/magicmonkey/go-streamdeck/decorators"
 	"github.com/rs/zerolog/log"
 )
 
-func osc_server() {
+type Caster struct {
+	SD *streamdeck.StreamDeck
+}
+
+var buttons_osc map[int]string // just the track ID and name
+
+func (c *Caster) Init() {
+	go c.osc_server()
+}
+
+func (c *Caster) Buttons() {
+	buttons_osc = make(map[int]string)
+	osc_send_sync()
+}
+
+func (c *Caster) osc_server() {
 	addr := "127.0.0.1:9000"
 	d := osc.NewStandardDispatcher()
 	d.AddMsgHandler("*", func(msg *osc.Message) {
-		go osc_event(msg.Address, msg.Arguments)
+		go c.osc_event(msg.Address, msg.Arguments)
 
 	})
 
@@ -28,7 +44,7 @@ func osc_server() {
 	go server.ListenAndServe()
 }
 
-func osc_event(Address string, Arguments []interface{}) {
+func (c *Caster) osc_event(Address string, Arguments []interface{}) {
 	// buttons offset, where to start
 	offset := 23
 
@@ -43,7 +59,7 @@ func osc_event(Address string, Arguments []interface{}) {
 			// make a button
 			audiobutton := buttons.NewTextButton(track_name)
 			audiobutton.SetActionHandler(&actionhandlers.OSCAction{Track: track_index})
-			sd.AddButton(offset+track_index, audiobutton)
+			c.SD.AddButton(offset+track_index, audiobutton)
 			buttons_osc[track_index] = track_name
 		}
 	}
@@ -58,12 +74,12 @@ func osc_event(Address string, Arguments []interface{}) {
 			if action == "Playing" {
 				log.Debug().Msg("Playing: " + buttons_osc[track_index])
 				decorator2 := sddecorators.NewBorder(12, color.RGBA{255, 255, 150, 255})
-				sd.SetDecorator(offset+track_index, decorator2)
+				c.SD.SetDecorator(offset+track_index, decorator2)
 			}
 
 			if action == "Stopped" {
 				log.Debug().Msg("Stopped: " + buttons_osc[track_index])
-				sd.UnsetDecorator(offset + track_index)
+				c.SD.UnsetDecorator(offset + track_index)
 			}
 
 		}
