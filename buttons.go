@@ -1,29 +1,23 @@
 package main
 
 import (
-	"fmt"
 	"image/color"
-	"io/ioutil"
-	"os/exec"
 	"strings"
 
 	obsws "github.com/christopher-dG/go-obs-websocket"
 	"github.com/lornajane/streamdeck-tricks/actionhandlers"
 	// "github.com/lornajane/streamdeck-tricks/addons"
-	"github.com/magicmonkey/go-streamdeck"
-	sdactionhandlers "github.com/magicmonkey/go-streamdeck/actionhandlers"
+
 	buttons "github.com/magicmonkey/go-streamdeck/buttons"
 	sddecorators "github.com/magicmonkey/go-streamdeck/decorators"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 
 	_ "github.com/godbus/dbus"
-	"github.com/sqp/pulseaudio"
 )
 
 var obs_client obsws.Client
 var obs_current_scene string
-var pulse *pulseaudio.Client
 
 type ObsScene struct {
 	Name     string `mapstructure:"name"`
@@ -35,8 +29,8 @@ func (scene *ObsScene) SetButtonId(id int) {
 	scene.ButtonId = id
 }
 
-var buttons_obs map[string]*ObsScene   // scene name and image name
-var buttons_osc map[int]string         // just the track ID and name
+var buttons_obs map[string]*ObsScene // scene name and image name
+var buttons_osc map[int]string       // just the track ID and name
 
 // InitButtons sets up initial button prompts
 func InitButtons() {
@@ -64,9 +58,6 @@ func InitButtons() {
 			obs_current_scene = scene
 		})
 	}
-
-	// Get some Audio Setup
-	pulse = getPulseConnection()
 
 	// OBS Scenes to Buttons
 	buttons_obs = make(map[string]*ObsScene)
@@ -146,35 +137,9 @@ func InitButtons() {
 
 	}
 
-	// Command
-	shotbutton, _ := buttons.NewImageFileButton(viper.GetString("buttons.images") + "/screenshot.png")
-	shotaction := &sdactionhandlers.CustomAction{}
-	shotaction.SetHandler(func(btn streamdeck.Button) {
-		go takeScreenshot()
-	})
-	shotbutton.SetActionHandler(shotaction)
-	sd.AddButton(15, shotbutton)
-
 	// send sync to get track info, event handler sets buttons as tracks are announced
 	buttons_osc = make(map[int]string)
 	osc_send_sync()
-}
-
-func takeScreenshot() {
-	log.Debug().Msg("Taking screenshot with delay...")
-	cmd := exec.Command("/usr/bin/gnome-screenshot", "-w", "-d", "2")
-	stderr, _ := cmd.StderrPipe()
-	stdout, _ := cmd.StdoutPipe()
-	if err := cmd.Run(); err != nil {
-		log.Warn().Err(err)
-	}
-
-	slurp, _ := ioutil.ReadAll(stderr)
-	fmt.Printf("%s\n", slurp)
-	slurp2, _ := ioutil.ReadAll(stdout)
-	fmt.Printf("%s\n", slurp2)
-
-	log.Debug().Msg("Taken screenshot")
 }
 
 func connectOBS() obsws.Client {
@@ -186,54 +151,4 @@ func connectOBS() obsws.Client {
 		log.Warn().Err(err).Msg("Cannot connect to OBS")
 	}
 	return obs_client
-}
-
-/*
-// MyButtonPress reacts to a button being pressed
-func MyButtonPress(btnIndex int, sd *streamdeck.Device, err error) {
-	switch btnIndex {
-	case 0:
-		sources, _ := pulse.Core().ListPath("Sources")
-
-		for _, src := range sources {
-			dev := pulse.Device(src) // Only use the first sink for the test.
-			var name string
-			var muted bool
-			dev.Get("Name", &name)
-			dev.Get("Mute", &muted)
-			fmt.Println(src, muted, name)
-
-			dev.Set("Mute", true)
-		}
-	}
-}
-*/
-
-type AppPulse struct {
-	Client *pulseaudio.Client
-}
-
-func getPulseConnection() *pulseaudio.Client {
-	isLoaded, e := pulseaudio.ModuleIsLoaded()
-	testFatal(e, "test pulse dbus module is loaded")
-	if !isLoaded {
-		e = pulseaudio.LoadModule()
-		testFatal(e, "load pulse dbus module")
-	}
-
-	// Connect to the pulseaudio dbus service.
-	pulse, e := pulseaudio.New()
-	testFatal(e, "connect to the pulse service")
-	return pulse
-}
-
-func closePulseConnection(pulse *pulseaudio.Client) {
-	//defer pulseaudio.UnloadModule()
-	defer pulse.Close()
-}
-
-func testFatal(e error, msg string) {
-	if e != nil {
-		log.Warn().Err(e).Msg(msg)
-	}
 }

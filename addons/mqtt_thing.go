@@ -2,7 +2,6 @@ package addons
 
 import (
 	"encoding/json"
-	"fmt"
 	"image/color"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -44,7 +43,6 @@ type PlugDevice struct {
 func (p *MqttThing) Buttons() {
 	var lights []LEDColour
 	viper.UnmarshalKey("shelf_lights", &lights)
-	fmt.Printf("%#v\n", lights)
 	button_index := 8
 
 	for _, light := range lights {

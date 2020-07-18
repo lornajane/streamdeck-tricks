@@ -56,6 +56,12 @@ func main() {
 	mqtt_addon := addons.MqttThing{SD: sd}
 	mqtt_addon.Init()
 	mqtt_addon.Buttons()
+
+	// init Screenshot
+	screenshot_addon := addons.Screenshot{SD: sd}
+	screenshot_addon.Init()
+	screenshot_addon.Buttons()
+
 	InitButtons()
 
 	log.Info().Msg("Up and running")
