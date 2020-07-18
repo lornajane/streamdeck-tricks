@@ -7,6 +7,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	streamdeck "github.com/magicmonkey/go-streamdeck"
 	_ "github.com/magicmonkey/go-streamdeck/devices"
+	"github.com/lornajane/streamdeck-tricks/addons"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
@@ -51,6 +52,10 @@ func main() {
 
 	osc_server()
 
+	// init MQTT
+	mqtt_addon := addons.MqttThing{SD: sd}
+	mqtt_addon.Init()
+	mqtt_addon.Buttons()
 	InitButtons()
 
 	log.Info().Msg("Up and running")

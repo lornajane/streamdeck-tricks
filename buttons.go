@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	obsws "github.com/christopher-dG/go-obs-websocket"
-	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/lornajane/streamdeck-tricks/actionhandlers"
+	// "github.com/lornajane/streamdeck-tricks/addons"
 	"github.com/magicmonkey/go-streamdeck"
 	sdactionhandlers "github.com/magicmonkey/go-streamdeck/actionhandlers"
 	buttons "github.com/magicmonkey/go-streamdeck/buttons"
@@ -21,17 +21,9 @@ import (
 	"github.com/sqp/pulseaudio"
 )
 
-var mqtt_client mqtt.Client
 var obs_client obsws.Client
 var obs_current_scene string
 var pulse *pulseaudio.Client
-
-type PlugDevice struct {
-	Name     string `mapstructure:"name"`
-	ButtonId int    `mapstructure:"button"`
-	ImageOn  string `mapstructure:"image_on"`
-	ImageOff string `mapstructure:"image_off"`
-}
 
 type ObsScene struct {
 	Name     string `mapstructure:"name"`
@@ -43,20 +35,11 @@ func (scene *ObsScene) SetButtonId(id int) {
 	scene.ButtonId = id
 }
 
-var buttons_plug map[string]PlugDevice // MQTT-enabled on/off plugs
 var buttons_obs map[string]*ObsScene   // scene name and image name
 var buttons_osc map[int]string         // just the track ID and name
 
-type LEDColour struct {
-	Red   uint8 `mapstructure:"red"`
-	Green uint8 `mapstructure:"green"`
-	Blue  uint8 `mapstructure:"blue"`
-}
-
 // InitButtons sets up initial button prompts
 func InitButtons() {
-	// Initialise MQTT to use the shelf light features
-	mqtt_client = connectMQTT()
 
 	// Initialise OBS to use OBS features (requires websockets plugin in OBS)
 	obs_client = connectOBS()
@@ -84,34 +67,6 @@ func InitButtons() {
 
 	// Get some Audio Setup
 	pulse = getPulseConnection()
-
-	// on/off plugs
-	viper.UnmarshalKey("plug_devices", &buttons_plug)
-	for device, deets := range buttons_plug {
-		// assume off, we can't get state
-		image := viper.GetString("buttons.images") + "/" + deets.ImageOff
-		plugbutton, err := buttons.NewImageFileButton(image)
-		if err == nil {
-			plugaction := &actionhandlers.PlugAction{Client: mqtt_client, Device: device, State: 0, ImageOn: deets.ImageOn, ImageOff: deets.ImageOff}
-			plugbutton.SetActionHandler(plugaction)
-			sd.AddButton(deets.ButtonId, plugbutton)
-		} else {
-			log.Warn().Err(err)
-		}
-	}
-
-	// shelf lights
-	var lights []LEDColour
-	viper.UnmarshalKey("shelf_lights", &lights)
-	button_index := 8
-
-	for _, light := range lights {
-		colour := color.RGBA{light.Red, light.Green, light.Blue, 255}
-		lbutton := buttons.NewColourButton(colour)
-		lbutton.SetActionHandler(&actionhandlers.MQTTAction{Colour: colour, Client: mqtt_client})
-		sd.AddButton(button_index, lbutton)
-		button_index = button_index + 1
-	}
 
 	// OBS Scenes to Buttons
 	buttons_obs = make(map[string]*ObsScene)
@@ -220,16 +175,6 @@ func takeScreenshot() {
 	fmt.Printf("%s\n", slurp2)
 
 	log.Debug().Msg("Taken screenshot")
-}
-
-func connectMQTT() mqtt.Client {
-	log.Debug().Msg("Connecting to MQTT...")
-	opts := mqtt.NewClientOptions().AddBroker("tcp://10.1.0.1:1883").SetClientID("go-streamdeck")
-	mqtt_client = mqtt.NewClient(opts)
-	if conn_token := mqtt_client.Connect(); conn_token.Wait() && conn_token.Error() != nil {
-		log.Warn().Err(conn_token.Error()).Msg("Cannot connect to MQTT")
-	}
-	return mqtt_client
 }
 
 func connectOBS() obsws.Client {
