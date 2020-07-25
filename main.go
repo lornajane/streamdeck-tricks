@@ -50,6 +50,13 @@ func main() {
 		panic(err)
 	}
 
+	// init OBS
+	// Initialise OBS to use OBS features (requires websockets plugin in OBS)
+	obs_addon := addons.Obs{SD: sd}
+	obs_addon.ConnectOBS()
+	obs_addon.ObsEventHandlers()
+	obs_addon.Buttons()
+
 	// init MQTT
 	mqtt_addon := addons.MqttThing{SD: sd}
 	mqtt_addon.Init()
@@ -64,8 +71,6 @@ func main() {
 	caster_addon := addons.Caster{SD: sd}
 	caster_addon.Init()
 	caster_addon.Buttons()
-
-	InitButtons()
 
 	log.Info().Msg("Up and running")
 	var wg sync.WaitGroup
