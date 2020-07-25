@@ -72,6 +72,10 @@ func main() {
 	caster_addon.Init()
 	caster_addon.Buttons()
 
+	// go Twitch API
+	twitch_addon := addons.Twitch{SD: sd}
+	twitch_addon.Init()
+
 	log.Info().Msg("Up and running")
 	var wg sync.WaitGroup
 	wg.Add(1)
