@@ -117,6 +117,6 @@ func (action *MQTTAction) Pressed(btn streamdeck.Button) {
 
 	payload, _ := json.Marshal(targetColour)
 	log.Debug().Msg(string(payload))
-	token := action.Client.Publish("/shelf/lights", 0, false, payload)
+	token := action.Client.Publish("/shelf/lights/colour", 0, false, payload)
 	token.Wait()
 }
