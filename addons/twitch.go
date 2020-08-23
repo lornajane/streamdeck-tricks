@@ -1,79 +1,127 @@
 package addons
 
 import (
-	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
-	"net/url"
+	"os"
 
 	"github.com/magicmonkey/go-streamdeck"
+	buttons "github.com/magicmonkey/go-streamdeck/buttons"
+	"github.com/nicklaw5/helix"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 )
 
 type Twitch struct {
-	SD          *streamdeck.StreamDeck
-	AccessToken string
-}
-
-// {"access_token":"wbffcg9rwe4p25sd6l2arp0u5rkzz5","expires_in":15680,"refresh_token":"wff8nn723olhosx2aqcl2613arum53gdon1k8rercvrq5281bx","scope":["user:edit:broadcast"],"token_type":"bearer"}
-
-type TwitchRefreshResponse struct {
-	AccessToken  string `json:"access_token"`
-	ExpiresIn    int    `json:"expires_in"`
-	RefreshToken string `json:"refresh_token"`
+	SD            *streamdeck.StreamDeck
+	twitch_client helix.Client
 }
 
 func (t *Twitch) Init() {
-	t.refreshToken()
-
-	/* --this bit doesn't work yet
-
-	endpoint := "https://api.twitch.tv/helix/users?login=lornajanetv"
-	client := &http.Client{}
-	req, _ := http.NewRequest("GET", endpoint, nil)
-	fmt.Println(endpoint)
-	fmt.Println(t.AccessToken)
-	req.Header.Set("Authorization", "Bearer "+t.AccessToken)
-	response, err := client.Do(req)
+	// make the twitch client
+	client, err := helix.NewClient(&helix.Options{
+		ClientID:     os.Getenv("TWITCH_CLIENT_ID"),
+		ClientSecret: os.Getenv("TWITCH_CLIENT_SECRET"),
+		RedirectURI:  "http://localhost:7001/auth-callback",
+	})
 	if err != nil {
-		log.Error().Err(err)
+		panic(err)
+	}
+	t.twitch_client = *client
+
+	// refresh token valid?
+	isValid := t.refreshToken()
+
+	if !isValid {
+		// refresh token outdated or missing, re-auth
+		fmt.Println("Auth to Twitch with URL in browser:")
+		// now set up the auth URL
+		scopes := []string{"user:edit:broadcast"}
+		url := t.twitch_client.GetAuthorizationURL(&helix.AuthorizationURLParams{
+			ResponseType: "code", // or "token"
+			Scopes:       scopes,
+			ForceVerify:  false,
+		})
+		fmt.Printf("%s\n", url)
 	}
 
-	body, _ := ioutil.ReadAll(response.Body)
-	log.Info().Msg(string(body))
-	*/
+	// add the HTTP endpoint for the auth callback
+	http.HandleFunc("/auth-callback", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "authed, like truthed")
 
+		code := r.URL.Query().Get("code")
+
+		resp, err := t.twitch_client.GetUserAccessToken(code)
+		if err != nil {
+			panic(err)
+		}
+
+		access_token := resp.Data.AccessToken
+		// Set the access token on the client
+		client.SetUserAccessToken(access_token)
+
+		refresh_token := resp.Data.RefreshToken
+		// Put the refresh token in a file for later
+		ioutil.WriteFile("twitch_refresh_token", []byte(refresh_token), 0644)
+	})
 }
 
-// refreshToken takes the refresh token from config, gets a new access token and refresh token. The access token is set on the Twitch struct and the refresh token is written to config for next time.
-func (t *Twitch) refreshToken() {
-	values := url.Values{
-		"grant_type":    {"refresh_token"},
-		"refresh_token": {viper.Get("twitch.refresh_token").(string)},
-		"client_id":     {viper.Get("twitch.key").(string)},
-		"client_secret": {viper.Get("twitch.secret").(string)},
+func (t *Twitch) refreshToken() bool {
+	data, file_err := ioutil.ReadFile("twitch_refresh_token")
+	if file_err != nil {
+		log.Error().Msg("Cannot read twitch_refresh_token, not authed")
+		return false
+	}
+	refreshToken := string(data)
+
+	resp, t_err := t.twitch_client.RefreshUserAccessToken(refreshToken)
+	if t_err != nil {
+		log.Error().Msg("Could not refesh tokens, not authed")
+		return false
 	}
 
-	response, err := http.PostForm("https://id.twitch.tv/oauth2/token", values)
-	// response, err := http.PostForm("https://ljnexmo.eu.ngrok.io/", values)
-	if err != nil {
-		log.Error().Err(err)
-	}
+	access_token := resp.Data.AccessToken
+	refresh_token := resp.Data.RefreshToken
+	ioutil.WriteFile("twitch_refresh_token", []byte(refresh_token), 0644)
+	// Set the access token on the client
+	t.twitch_client.SetUserAccessToken(access_token)
+	log.Debug().Msg("Token refreshed")
 
-	body, _ := ioutil.ReadAll(response.Body)
-	log.Info().Msg(string(body))
+	return true
+}
 
-	// decode
-	data := TwitchRefreshResponse{}
-	data_err := json.Unmarshal(body, &data)
-	if err != nil {
-		log.Error().Err(data_err)
-	} else {
-		// store the access token for use in this program
-		t.AccessToken = data.AccessToken
-		// write the refresh token to the config file for another day or later
-		viper.Set("twitch.refresh_token", data.RefreshToken)
-		viper.WriteConfig()
+func (t *Twitch) Buttons() {
+	markbutton := buttons.NewTextButton("Mark")
+	markbutton.SetActionHandler(&TwitchAction{Action: "mark", Client: t.twitch_client})
+	t.SD.AddButton(23, markbutton)
+	vidbutton := buttons.NewTextButton("Vids")
+	vidbutton.SetActionHandler(&TwitchAction{Action: "videos", Client: t.twitch_client})
+	t.SD.AddButton(22, vidbutton)
+}
+
+type TwitchAction struct {
+	Client helix.Client
+	Action string
+}
+
+func (action *TwitchAction) Pressed(btn streamdeck.Button) {
+	log.Debug().Msg("Twitch Action: " + action.Action)
+
+	// _ := t.refreshToken()
+
+	if action.Action == "videos" {
+		// output all videos for my user ID
+		resp, err := action.Client.GetVideos(&helix.VideosParams{UserID: "493107973"})
+		if err != nil {
+			log.Error().Err(err)
+		}
+		fmt.Printf("%#v\n", resp)
+	} else if action.Action == "mark" {
+		// not going to do anything with these responses while I'm streaming
+		resp_mark, _ := action.Client.CreateStreamMarker(&helix.CreateStreamMarkerParams{
+			UserID:      "493107973",
+			Description: "Streamdeck marks the spot",
+		})
+		fmt.Printf("%#v\n", resp_mark)
 	}
 }

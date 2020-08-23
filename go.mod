@@ -14,6 +14,7 @@ require (
 	github.com/hypebeast/go-osc v0.0.0-20200115085105-85fee7fed692
 	github.com/magicmonkey/go-streamdeck v0.0.0-00010101000000-000000000000
 	github.com/magicmonkey/gobelkinwemo v0.0.0-20200525111057-5256eb3ea3c5
+	github.com/nicklaw5/helix v0.7.0
 	github.com/rs/zerolog v1.18.0
 	github.com/spf13/viper v1.7.0
 	github.com/sqp/pulseaudio v0.0.0-20180916175200-29ac6bfa231c

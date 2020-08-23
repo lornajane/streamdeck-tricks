@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"net/http"
 	"os"
 	"sync"
 
@@ -75,9 +77,20 @@ func main() {
 	// go Twitch API
 	twitch_addon := addons.Twitch{SD: sd}
 	twitch_addon.Init()
+	twitch_addon.Buttons()
+
+	go webserver()
 
 	log.Info().Msg("Up and running")
 	var wg sync.WaitGroup
 	wg.Add(1)
 	wg.Wait()
+}
+
+func webserver() {
+	http.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "OK")
+	})
+
+	http.ListenAndServe(":7001", nil)
 }
