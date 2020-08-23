@@ -1,0 +1,41 @@
+# hardcoded image names, in a flexible location
+images_buttons: "images/buttons"
+
+# colour sets for the shelf lights
+shelf_lights:
+  - red: 120
+    blue: 200
+  - red: 120
+    green: 150
+  - blue: 200
+    green: 40
+    red: 60
+
+# wemo device names and images
+plug_devices:
+  shelf:
+    name: "Shelf" 
+    button: 16
+    image_on: "shelf-on.png"
+    image_off: "shelf-off.png"
+  videolight:
+    name: "Video light"
+    button: 17
+    image_on: "video-light-on.png"
+    image_off: "video-light-off.png"
+
+# OBS scenes
+obs_scenes:
+  MyCam:
+    name: Camera 
+    image: "/camera.png"
+  Offline:
+    name: Offline
+    image: "/offline.png"
+
+# Twitch Integration
+twitch:
+  client_id: abcdef01
+  client_secret: zzzzxxxxwwwwyyyy
+  user_id: "9876543210"
+
