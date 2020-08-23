@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
 
 	"github.com/magicmonkey/go-streamdeck"
 	buttons "github.com/magicmonkey/go-streamdeck/buttons"
 	"github.com/nicklaw5/helix"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 )
 
 type Twitch struct {
@@ -20,8 +20,8 @@ type Twitch struct {
 func (t *Twitch) Init() {
 	// make the twitch client
 	client, err := helix.NewClient(&helix.Options{
-		ClientID:     os.Getenv("TWITCH_CLIENT_ID"),
-		ClientSecret: os.Getenv("TWITCH_CLIENT_SECRET"),
+		ClientID:     viper.GetString("twitch.client_id"),
+		ClientSecret: viper.GetString("twitch.client_secret"),
 		RedirectURI:  "http://localhost:7001/auth-callback",
 	})
 	if err != nil {
@@ -108,10 +108,11 @@ func (action *TwitchAction) Pressed(btn streamdeck.Button) {
 	log.Debug().Msg("Twitch Action: " + action.Action)
 
 	// _ := t.refreshToken()
+	user_id := viper.GetString("twitch.user_id")
 
 	if action.Action == "videos" {
 		// output all videos for my user ID
-		resp, err := action.Client.GetVideos(&helix.VideosParams{UserID: "493107973"})
+		resp, err := action.Client.GetVideos(&helix.VideosParams{UserID: user_id})
 		if err != nil {
 			log.Error().Err(err)
 		}
@@ -119,7 +120,7 @@ func (action *TwitchAction) Pressed(btn streamdeck.Button) {
 	} else if action.Action == "mark" {
 		// not going to do anything with these responses while I'm streaming
 		resp_mark, _ := action.Client.CreateStreamMarker(&helix.CreateStreamMarkerParams{
-			UserID:      "493107973",
+			UserID:      user_id,
 			Description: "Streamdeck marks the spot",
 		})
 		fmt.Printf("%#v\n", resp_mark)

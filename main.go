@@ -6,7 +6,6 @@ import (
 	"os"
 	"sync"
 
-	"github.com/fsnotify/fsnotify"
 	"github.com/lornajane/streamdeck-tricks/addons"
 	streamdeck "github.com/magicmonkey/go-streamdeck"
 	_ "github.com/magicmonkey/go-streamdeck/devices"
@@ -32,13 +31,6 @@ func loadConfigAndDefaults() {
 	if err != nil { // Handle errors reading the config file
 		log.Warn().Msgf("Cannot read config file: %s \n", err)
 	}
-
-	// useful in development phase, pick up config file updates
-	viper.WatchConfig()
-	viper.OnConfigChange(func(e fsnotify.Event) {
-		log.Info().Msgf("Config file changed:", e.Name)
-	})
-
 }
 
 func main() {
@@ -68,6 +60,11 @@ func main() {
 	screenshot_addon := addons.Screenshot{SD: sd}
 	screenshot_addon.Init()
 	screenshot_addon.Buttons()
+
+	// init WindowManager
+	windowmgmt_addon := addons.WindowMgmt{SD: sd}
+	windowmgmt_addon.Init()
+	windowmgmt_addon.Buttons()
 
 	// set up soundcaster
 	caster_addon := addons.Caster{SD: sd}

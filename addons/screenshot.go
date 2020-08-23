@@ -1,15 +1,13 @@
 package addons
 
 import (
-	"fmt"
-	"io/ioutil"
 	"os/exec"
 
 	"github.com/magicmonkey/go-streamdeck"
-	"github.com/magicmonkey/go-streamdeck/buttons"
 	sdactionhandlers "github.com/magicmonkey/go-streamdeck/actionhandlers"
-	"github.com/spf13/viper"
+	"github.com/magicmonkey/go-streamdeck/buttons"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 )
 
 type Screenshot struct {
@@ -34,16 +32,8 @@ func (s *Screenshot) Buttons() {
 func takeScreenshot() {
 	log.Debug().Msg("Taking screenshot with delay...")
 	cmd := exec.Command("/usr/bin/gnome-screenshot", "-w", "-d", "2")
-	stderr, _ := cmd.StderrPipe()
-	stdout, _ := cmd.StdoutPipe()
 	if err := cmd.Run(); err != nil {
 		log.Warn().Err(err)
 	}
-
-	slurp, _ := ioutil.ReadAll(stderr)
-	fmt.Printf("%s\n", slurp)
-	slurp2, _ := ioutil.ReadAll(stdout)
-	fmt.Printf("%s\n", slurp2)
-
 	log.Debug().Msg("Taken screenshot")
 }
