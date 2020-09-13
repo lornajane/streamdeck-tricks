@@ -31,11 +31,11 @@ func (s *WindowMgmt) Buttons() {
 	obsbutton.SetActionHandler(obsaction)
 	s.SD.AddButton(14, obsbutton)
 
-	// Focus window called "Stream Manager" for Twitch
+	// Launch or focus Twitch Stream Manager
 	twitchbutton, _ := buttons.NewImageFileButton(viper.GetString("buttons.images") + "/twitch-logo.png")
 	twitchaction := &sdactionhandlers.CustomAction{}
 	twitchaction.SetHandler(func(btn streamdeck.Button) {
-		cmd := exec.Command("/usr/bin/wmctrl", "-a", "Stream Manager")
+		cmd := exec.Command("gtk-launch", "stream-manager")
 		if err := cmd.Run(); err != nil {
 			log.Warn().Err(err)
 		}
@@ -44,10 +44,10 @@ func (s *WindowMgmt) Buttons() {
 	s.SD.AddButton(13, twitchbutton)
 
 	// Focus window called "featured.chat"
-	chatbutton := buttons.NewTextButton("Chat")
+	chatbutton, _ := buttons.NewImageFileButton(viper.GetString("buttons.images") + "/pin-chat.png")
 	chataction := &sdactionhandlers.CustomAction{}
 	chataction.SetHandler(func(btn streamdeck.Button) {
-		cmd := exec.Command("/usr/bin/wmctrl", "-a", "featured.chat")
+		cmd := exec.Command("gtk-launch", "featured-chat")
 		if err := cmd.Run(); err != nil {
 			log.Warn().Err(err)
 		}
