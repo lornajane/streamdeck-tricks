@@ -28,9 +28,10 @@ func (p *MqttThing) Init() {
 
 // Set up buttons
 type LEDColour struct {
-	Red   uint8 `mapstructure:"red"`
-	Green uint8 `mapstructure:"green"`
-	Blue  uint8 `mapstructure:"blue"`
+	Red   uint8 `mapstructure:"red" json:"red"`
+	Green uint8 `mapstructure:"green" json:"green"`
+	Blue  uint8 `mapstructure:"blue" json:"blue"`
+	White uint8 `mapstructure:"white" json:"white"`
 }
 
 type PlugDevice struct {
@@ -40,15 +41,20 @@ type PlugDevice struct {
 	ImageOff string `mapstructure:"image_off"`
 }
 
+type ManyLights struct {
+	Colour1 LEDColour `mapstructure:"colour1"`
+	Colour2 LEDColour `mapstructure:"colour2"`
+}
+
 func (p *MqttThing) Buttons() {
-	var lights []LEDColour
+	var lights []ManyLights
 	viper.UnmarshalKey("shelf_lights", &lights)
 	button_index := 18
 
 	for _, light := range lights {
-		colour := color.RGBA{light.Red, light.Green, light.Blue, 255}
+		colour := color.RGBA{light.Colour1.Red, light.Colour1.Green, light.Colour1.Blue, 255}
 		lbutton := buttons.NewColourButton(colour)
-		lbutton.SetActionHandler(&MQTTAction{Colour: colour, Client: p.mqtt_client})
+		lbutton.SetActionHandler(&MQTTAction{Colour: light.Colour1, Colour2: light.Colour2, Client: p.mqtt_client})
 		p.SD.AddButton(button_index, lbutton)
 		button_index = button_index + 1
 	}
@@ -100,20 +106,16 @@ func (action *PlugAction) Pressed(btn streamdeck.Button) {
 
 // Lights Action handler
 type MQTTAction struct {
-	Client mqtt.Client
-	Colour color.RGBA
-	btn    streamdeck.Button
-}
-
-type Colour struct {
-	Red   uint8 `json:"red"`
-	Green uint8 `json:"green"`
-	Blue  uint8 `json:"blue"`
+	Client  mqtt.Client
+	Colour  LEDColour
+	Colour2 LEDColour
+	btn     streamdeck.Button
 }
 
 func (action *MQTTAction) Pressed(btn streamdeck.Button) {
-
-	targetColour := Colour{Red: action.Colour.R, Green: action.Colour.G, Blue: action.Colour.B}
+	var targetColour []LEDColour
+	targetColour = append(targetColour, action.Colour)
+	targetColour = append(targetColour, action.Colour2)
 
 	payload, _ := json.Marshal(targetColour)
 	log.Debug().Msg(string(payload))
