@@ -1,10 +1,8 @@
 # StreamDeck Tricks
 
-This repo holds the one-of-a-kind project that drives my streamdeck application. 
+This repo holds the one-of-a-kind project that drives my streamdeck application. It is not intended for general use, and is just released to allow community members to improve their own knowledge and tooling. That said, I'm happy to review any issues and pull requests, but please be aware that I'm unlikely to merge or implement any changes that don't help my own workflow.
 
-
-
-
+If you use this repository to improve your streamdeck workflow, you are encouraged to do the same thing - share your configuration and let others know how you made your stream more awesome!
 
 ## Fabulous Libraries That Made This Project Possible
 
