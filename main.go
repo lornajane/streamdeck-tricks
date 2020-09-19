@@ -76,6 +76,11 @@ func main() {
 	twitch_addon.Init()
 	twitch_addon.Buttons()
 
+	// Mute/Audio features
+	mute_addon := addons.Mute{SD: sd, Button_id: 31}
+	mute_addon.Init()
+	mute_addon.Buttons()
+
 	go webserver()
 
 	log.Info().Msg("Up and running")
