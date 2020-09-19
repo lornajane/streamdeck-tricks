@@ -29,8 +29,8 @@ func (t *Twitch) Init() {
 	}
 	t.twitch_client = *client
 
-	// refresh token valid?
-	isValid := t.refreshToken()
+	// refresh token valid? Check by trying to use it to get new tokens
+	isValid := t.updateTokens()
 
 	if !isValid {
 		// refresh token outdated or missing, re-auth
@@ -51,7 +51,7 @@ func (t *Twitch) Init() {
 
 		code := r.URL.Query().Get("code")
 
-		resp, err := t.twitch_client.GetUserAccessToken(code)
+		resp, err := t.twitch_client.RequestUserAccessToken(code)
 		if err != nil {
 			panic(err)
 		}
@@ -66,7 +66,10 @@ func (t *Twitch) Init() {
 	})
 }
 
-func (t *Twitch) refreshToken() bool {
+// UpdateTokens tries to use a current refresh token to get a new access token
+// If we got new tokens, it returns true. If not (invalid or missing refresh token usually)
+// then it returns false.
+func (t *Twitch) updateTokens() bool {
 	data, file_err := ioutil.ReadFile("twitch_refresh_token")
 	if file_err != nil {
 		log.Error().Msg("Cannot read twitch_refresh_token, not authed")
@@ -85,29 +88,35 @@ func (t *Twitch) refreshToken() bool {
 	ioutil.WriteFile("twitch_refresh_token", []byte(refresh_token), 0644)
 	// Set the access token on the client
 	t.twitch_client.SetUserAccessToken(access_token)
-	log.Debug().Msg("Token refreshed")
+	log.Debug().Msg("Tokens updated")
 
 	return true
 }
 
 func (t *Twitch) Buttons() {
 	markbutton := buttons.NewTextButton("Mark")
-	markbutton.SetActionHandler(&TwitchAction{Action: "mark", Client: t.twitch_client})
+	markbutton.SetActionHandler(&TwitchAction{Action: "mark", Client: t.twitch_client, Twitch: t})
 	t.SD.AddButton(23, markbutton)
 	vidbutton := buttons.NewTextButton("Vids")
-	vidbutton.SetActionHandler(&TwitchAction{Action: "videos", Client: t.twitch_client})
+	vidbutton.SetActionHandler(&TwitchAction{Action: "videos", Client: t.twitch_client, Twitch: t})
 	t.SD.AddButton(22, vidbutton)
 }
 
 type TwitchAction struct {
 	Client helix.Client
 	Action string
+	Twitch *Twitch
 }
 
 func (action *TwitchAction) Pressed(btn streamdeck.Button) {
-	log.Debug().Msg("Twitch Action: " + action.Action)
+	log.Info().Msg("Twitch Action: " + action.Action)
 
-	// _ := t.refreshToken()
+	log.Debug().Msg("Check access token (next line shows if we had to update it)")
+	isValid, _, _ := action.Client.ValidateToken(action.Client.GetUserAccessToken())
+	if !isValid {
+		action.Twitch.updateTokens()
+	}
+
 	user_id := viper.GetString("twitch.user_id")
 
 	if action.Action == "videos" {
