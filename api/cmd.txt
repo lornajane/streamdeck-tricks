@@ -1,0 +1,3 @@
+docker run --rm -it -v ${PWD}/house-mqtt.yaml:/app/asyncapi.yml -v ${PWD}/out:/app/output asyncapi/generator  -o ./output asyncapi.yml @asyncapi/html-template --force-write
+
+

@@ -1,0 +1,40 @@
+asyncapi: 2.0.0
+info:
+  title: Neopixel Shelf
+  version: '0.2.0'
+servers:
+  production:
+    url: 10.1.0.1
+    protocol: mqtt
+    description: MQTT House Server
+channels:
+  shelf/connect:
+    publish:
+      operationId: announceConnect
+      summary: Announce connected
+      description: When the ESP connects, it announces itself and its client ID
+      message:
+        name: connect
+        payload:
+          type: string
+          description: Connection message
+          example: "connected lorna-lights8"
+
+  shelf/lights:
+    subscribe:
+      operationId: setShelfLightColour
+      summary: Send Colours
+      message:
+        name: colours
+        payload:
+          type: array
+          items:
+            - type: object
+              properties:
+                red:
+                  type: string
+                green:
+                  type: string
+                blue:
+                  type: string
+
