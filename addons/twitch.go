@@ -88,7 +88,7 @@ func (t *Twitch) updateTokens() bool {
 	ioutil.WriteFile("twitch_refresh_token", []byte(refresh_token), 0644)
 	// Set the access token on the client
 	t.twitch_client.SetUserAccessToken(access_token)
-	log.Debug().Msg("Tokens updated")
+	log.Debug().Msg("Twitch tokens updated")
 
 	return true
 }

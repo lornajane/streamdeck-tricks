@@ -76,6 +76,11 @@ func main() {
 	twitch_addon.Init()
 	twitch_addon.Buttons()
 
+	// Nightbot (needs ngrok twitch if refresh has expired)
+	nightbot_addon := addons.Nightbot{SD: sd}
+	nightbot_addon.Init()
+	nightbot_addon.Buttons()
+
 	// Mute/Audio features
 	mute_addon := addons.Mute{SD: sd, Button_id: 31}
 	mute_addon.Init()
