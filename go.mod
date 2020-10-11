@@ -5,6 +5,7 @@ go 1.14
 replace github.com/magicmonkey/go-streamdeck => /home/lorna/go/src/github.com/magicmonkey/go-streamdeck
 
 require (
+	github.com/atotto/clipboard v0.1.2
 	github.com/christopher-dG/go-obs-websocket v0.0.0-20200501221211-5c9c018f6fb4
 	github.com/eclipse/paho.mqtt.golang v1.2.0
 	github.com/fsnotify/fsnotify v1.4.7

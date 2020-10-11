@@ -22,7 +22,7 @@ type Mute struct {
 func (s *Mute) Init() {
 	// not much to initialise but should probably read some config for source name
 	// or calculate it, try this (yes, really)
-	// pulsemixer --list-sources | cut -f3 | grep 'UMC404HD 192k Multichannel' | cut -d ',' -f 1 | cut -d ':' -f 2 | xargs
+	// pulsemixer --list-sources | cut -f3 | grep 'UMC404HD 192k Multichannel' | cut -d ',' -f 1 | cut -c 6-
 
 }
 

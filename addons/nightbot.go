@@ -1,16 +1,21 @@
 package addons
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"time"
 
+	"github.com/atotto/clipboard"
 	"github.com/magicmonkey/go-streamdeck"
+	"github.com/magicmonkey/go-streamdeck/buttons"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 )
@@ -19,6 +24,9 @@ type Nightbot struct {
 	SD           *streamdeck.StreamDeck
 	AccessToken  string
 	RefreshToken string
+	Text         string
+	ChatLines    []string
+	ChatIndex    int
 }
 
 type NightbotAuthTokenResponse struct {
@@ -31,7 +39,7 @@ type NightbotAuthTokenResponse struct {
 
 func (n *Nightbot) Init() {
 	// can we use a refresh token to avoid needing to click?
-	n.updateTokens("refresh_token", "")
+	go n.updateTokens("refresh_token", "")
 
 	// add the HTTP endpoint for the auth callback
 	http.HandleFunc("/nightbot", func(w http.ResponseWriter, r *http.Request) {
@@ -43,19 +51,7 @@ func (n *Nightbot) Init() {
 		n.updateTokens("code", code)
 	})
 
-
-	// err, this just checks we can talk to the API
-	me_url := "https://api.nightbot.tv/1/me"
-	req, err := http.NewRequest("GET", me_url, nil)
-	req.Header.Add("Authorization", "Bearer " + n.AccessToken)
-	client := &http.Client{}
-    resp, err := client.Do(req)
-	if err != nil {
-		panic(err)
-	}
-	body, _ := ioutil.ReadAll(resp.Body)
-	log.Info().Msg(string(body))
-
+	n.readChatLines()
 }
 
 // updateTokens can take either a "code" or a "refresh_token" with no value (it's stored on disk) to get new tokens
@@ -90,8 +86,8 @@ func (n *Nightbot) updateTokens(token_type string, code string) bool {
 	}
 
 	/*
-	// Useful debugging but leaks creds, don't use when streaming
-	log.Debug().Msg(string(body))
+		// Useful debugging but leaks creds, don't use when streaming
+		log.Debug().Msg(string(body))
 	*/
 
 	if resp.StatusCode == 200 {
@@ -133,5 +129,85 @@ func (n *Nightbot) updateTokens(token_type string, code string) bool {
 }
 
 func (n *Nightbot) Buttons() {
+	cuebutton := buttons.NewTextButton("Cue")
+	cuebutton.SetActionHandler(&NightbotAction{Action: "chat-cue", Bot: n})
+	n.SD.AddButton(9, cuebutton)
+
+	chatsendbutton := buttons.NewTextButton("Send")
+	chatsendbutton.SetActionHandler(&NightbotAction{Action: "chat-send", Bot: n})
+	n.SD.AddButton(8, chatsendbutton)
+
+	filebutton := buttons.NewTextButton("File")
+	filebutton.SetActionHandler(&NightbotAction{Action: "chat-file", Bot: n})
+	n.SD.AddButton(10, filebutton)
+}
+
+func (n *Nightbot) readChatLines() {
+	var chatlines []string
+	file, err := os.Open("chat-lines.txt")
+	if err != nil {
+		log.Error().Err(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		chatlines = append(chatlines, scanner.Text())
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Error().Err(err)
+	}
+	n.ChatLines = chatlines
+	n.ChatIndex = 0
+}
+
+type NightbotAction struct {
+	Action  string
+	Bot     *Nightbot
+	Scanner bufio.Scanner
+}
+
+type NightbotMessage struct {
+	Message string `json:"message"`
+}
+
+func (action *NightbotAction) Pressed(btn streamdeck.Button) {
+	log.Info().Msg("Bot Action: " + action.Action)
+
+	if action.Action == "chat-cue" {
+		text, _ := clipboard.ReadAll()
+		action.Bot.Text = text
+		log.Info().Msg("Ready to Send: " + action.Bot.Text)
+	}
+
+	if action.Action == "chat-send" {
+		log.Info().Msg("Sending: " + action.Bot.Text)
+		msg := NightbotMessage{Message: action.Bot.Text}
+		json_data, _ := json.Marshal(msg)
+		req_data := bytes.NewReader(json_data)
+
+		chat_url := "https://api.nightbot.tv/1/channel/send"
+		req, err := http.NewRequest("POST", chat_url, req_data)
+		req.Header.Add("Authorization", "Bearer "+action.Bot.AccessToken)
+		req.Header.Add("Content-Type", "application/json")
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			panic(err)
+		}
+		body, _ := ioutil.ReadAll(resp.Body)
+		log.Info().Msg(string(body))
+	}
+
+	if action.Action == "chat-file" {
+		text := action.Bot.ChatLines[action.Bot.ChatIndex]
+		log.Debug().Msg("Ready to send: " + text)
+		action.Bot.Text = text
+		action.Bot.ChatIndex++
+		if action.Bot.ChatIndex >= len(action.Bot.ChatLines) {
+			action.Bot.readChatLines()
+		}
+	}
 
 }
