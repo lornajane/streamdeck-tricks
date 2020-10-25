@@ -47,8 +47,7 @@ func main() {
 	// init OBS
 	// Initialise OBS to use OBS features (requires websockets plugin in OBS)
 	obs_addon := addons.Obs{SD: sd}
-	obs_addon.ConnectOBS()
-	obs_addon.ObsEventHandlers()
+	obs_addon.Init()
 	obs_addon.Buttons()
 
 	// init MQTT

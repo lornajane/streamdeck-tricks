@@ -144,7 +144,7 @@ func (n *Nightbot) Buttons() {
 
 func (n *Nightbot) readChatLines() {
 	var chatlines []string
-	file, err := os.Open("chat-lines.txt")
+	file, err := os.Open("motd.txt")
 	if err != nil {
 		log.Error().Err(err)
 	}
