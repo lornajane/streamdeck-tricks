@@ -1,4 +1,5 @@
 config.yaml
 twitch_refresh_token
 nightbot_refresh_token
-chat-lines.txt
+motd.txt
+
