@@ -129,15 +129,18 @@ func (n *Nightbot) updateTokens(token_type string, code string) bool {
 }
 
 func (n *Nightbot) Buttons() {
-	cuebutton := buttons.NewTextButton("Cue")
+	cueImage := viper.GetString("buttons.images") + "/cue-paste.png"
+	cuebutton, _ := buttons.NewImageFileButton(cueImage)
 	cuebutton.SetActionHandler(&NightbotAction{Action: "chat-cue", Bot: n})
 	n.SD.AddButton(9, cuebutton)
 
-	chatsendbutton := buttons.NewTextButton("Send")
+	sendImage := viper.GetString("buttons.images") + "/send.png"
+	chatsendbutton, _ := buttons.NewImageFileButton(sendImage)
 	chatsendbutton.SetActionHandler(&NightbotAction{Action: "chat-send", Bot: n})
 	n.SD.AddButton(8, chatsendbutton)
 
-	filebutton := buttons.NewTextButton("File")
+	fileImage := viper.GetString("buttons.images") + "/cue-file.png"
+	filebutton, _ := buttons.NewImageFileButton(fileImage)
 	filebutton.SetActionHandler(&NightbotAction{Action: "chat-file", Bot: n})
 	n.SD.AddButton(10, filebutton)
 }
