@@ -19,6 +19,8 @@ type Mute struct {
 	Button_id int
 }
 
+const source = "source-10"
+
 func (s *Mute) Init() {
 	// not much to initialise but should probably read some config for source name
 	// or calculate it, try this (yes, really)
@@ -42,13 +44,13 @@ func (s *Mute) toggleMute() {
 	if s.Status {
 		// unmute
 		log.Debug().Msg("Unmuting")
-		cmd := exec.Command("/usr/bin/pulsemixer", "--id", "source-7", "--unmute")
+		cmd := exec.Command("pulsemixer", "--id", source, "--unmute")
 		if err := cmd.Run(); err != nil {
 			log.Warn().Err(err)
 		}
 	} else {
 		log.Debug().Msg("Muting")
-		cmd := exec.Command("/usr/bin/pulsemixer", "--id", "source-7", "--mute")
+		cmd := exec.Command("pulsemixer", "--id", source, "--mute")
 		if err := cmd.Run(); err != nil {
 			log.Warn().Err(err)
 		}
@@ -57,7 +59,7 @@ func (s *Mute) toggleMute() {
 }
 
 func (s *Mute) readMuteStatus() bool {
-	cmd := exec.Command("/usr/bin/pulsemixer", "--id", "source-7", "--get-mute")
+	cmd := exec.Command("pulsemixer", "--id", source, "--get-mute")
 	var outb bytes.Buffer
 	cmd.Stdout = &outb
 	if err := cmd.Run(); err != nil {
