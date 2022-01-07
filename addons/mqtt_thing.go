@@ -28,38 +28,50 @@ func (p *MqttThing) Init() {
 
 type LEDWallBg struct {
 	Action string `json:"action"`
-	Red   uint8 `json:"r"`
-	Green uint8 `json:"g"`
-	Blue  uint8 `json:"b"`
+	Red    uint8  `json:"r"`
+	Green  uint8  `json:"g"`
+	Blue   uint8  `json:"b"`
 }
 
 type LEDWallFirework struct {
 	Action string `json:"action"`
-	Hue uint8 `json:"b,omitempty"`
+	Hue    uint8  `json:"b,omitempty"`
 }
 type LEDWallSnake struct {
-	Action string `json:"action"`
-	Enabled bool `json:"enabled"`
+	Action  string `json:"action"`
+	Enabled bool   `json:"enabled"`
 }
 
 // Set up buttons
 func (p *MqttThing) Buttons() {
 	button_index := 18
 
-	bgoptions := LEDWallBg{"background", 5, 0, 6}
-	lbutton := buttons.NewColourButton(color.RGBA{255,0,255,255})
-	lbutton.SetActionHandler(&MQTTBgAction{Options: bgoptions, Client: p.mqtt_client})
-	p.SD.AddButton(button_index, lbutton)
+	bgoptions3 := LEDWallBg{"background", 1, 3, 3}
+	lbutton3 := buttons.NewColourButton(color.RGBA{155, 255, 255, 255})
+	lbutton3.SetActionHandler(&MQTTBgAction{Options: bgoptions3, Client: p.mqtt_client})
+	p.SD.AddButton(button_index, lbutton3)
 	button_index = button_index + 1
 
-	bgoptions2 := LEDWallBg{"background", 4, 3, 0}
-	lbutton2 := buttons.NewColourButton(color.RGBA{255,255,155,255})
+	bgoptions4 := LEDWallBg{"background", 6, 1, 4}
+	lbutton4 := buttons.NewColourButton(color.RGBA{255, 155, 155, 255})
+	lbutton4.SetActionHandler(&MQTTBgAction{Options: bgoptions4, Client: p.mqtt_client})
+	p.SD.AddButton(button_index, lbutton4)
+	button_index = button_index + 1
+
+	bgoptions2 := LEDWallBg{"background", 6, 5, 1}
+	lbutton2 := buttons.NewColourButton(color.RGBA{255, 255, 155, 255})
 	lbutton2.SetActionHandler(&MQTTBgAction{Options: bgoptions2, Client: p.mqtt_client})
 	p.SD.AddButton(button_index, lbutton2)
+	button_index = button_index + 1
+
+	bgoptions5 := LEDWallBg{"background", 4, 2, 4}
+	lbutton5 := buttons.NewColourButton(color.RGBA{255, 200, 255, 255})
+	lbutton5.SetActionHandler(&MQTTBgAction{Options: bgoptions5, Client: p.mqtt_client})
+	p.SD.AddButton(button_index, lbutton5)
 
 	fireworkoptions := LEDWallFirework{"firework", 0}
 	fbutton, ferr := buttons.NewImageFileButton(viper.GetString("buttons.images") + "/firework-sparkler.png")
-	if(ferr != nil) {
+	if ferr != nil {
 		panic(ferr)
 	}
 	fbutton.SetActionHandler(&MQTTFireworkAction{Options: fireworkoptions, Client: p.mqtt_client})
@@ -78,7 +90,6 @@ type MQTTBgAction struct {
 	btn     streamdeck.Button
 }
 
-
 func (action *MQTTBgAction) Pressed(btn streamdeck.Button) {
 	payload, _ := json.Marshal(action.Options)
 	log.Debug().Msg(string(payload))
@@ -91,7 +102,6 @@ type MQTTFireworkAction struct {
 	Options LEDWallFirework
 	btn     streamdeck.Button
 }
-
 
 func (action *MQTTFireworkAction) Pressed(btn streamdeck.Button) {
 	payload, _ := json.Marshal(action.Options)
@@ -107,7 +117,6 @@ type MQTTSnakeAction struct {
 	snake_state bool
 }
 
-
 func (action *MQTTSnakeAction) Pressed(btn streamdeck.Button) {
 	// use current snake state before sending, then switch state after
 	action.Options.Enabled = action.snake_state
@@ -117,7 +126,7 @@ func (action *MQTTSnakeAction) Pressed(btn streamdeck.Button) {
 	token.Wait()
 
 	// now toggle state ready for next press
-	if(action.snake_state) {
+	if action.snake_state {
 		action.snake_state = false
 	} else {
 		action.snake_state = true
