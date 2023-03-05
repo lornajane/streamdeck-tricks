@@ -1,7 +1,6 @@
-package main
+package addons
 
 import (
-	"fmt"
 	"image/color"
 )
 
@@ -10,10 +9,12 @@ type Pix struct {
 	Y uint8
 }
 
+/*
 var BL = color.RGBA{R: 0, G: 0, B: 0, A: 255}
 var TL = color.RGBA{R: 0, G: 0, B: 0, A: 255}
 var BR = color.RGBA{R: 0, G: 0, B: 50, A: 255}
 var TR = color.RGBA{R: 0, G: 50, B: 0, A: 255}
+*/
 
 var Pixels = []Pix{
 	// A
@@ -276,16 +277,18 @@ var Pixels = []Pix{
 var MaxX uint8 = 60
 var MaxY uint8 = 58
 
-func main() {
-	for pixnum, pix := range Pixels {
+func Fade(corners LEDWallFade) (retval []color.RGBA) {
+	for _, pix := range Pixels {
 		// Figure out the red value up the left side, then the right side, then
 		// look at how far between those sides we are to get the final value
-		red := scaleToRange2d(pix, BL.R, BR.R, TL.R, TR.R)
-		green := scaleToRange2d(pix, BL.G, BR.G, TL.G, TR.G)
-		blue := scaleToRange2d(pix, BL.B, BR.B, TL.B, TR.B)
+		red := scaleToRange2d(pix, corners.BL.R, corners.BR.R, corners.TL.R, corners.TR.R)
+		green := scaleToRange2d(pix, corners.BL.G, corners.BR.G, corners.TL.G, corners.TR.G)
+		blue := scaleToRange2d(pix, corners.BL.B, corners.BR.B, corners.TL.B, corners.TR.B)
+		retval = append(retval, color.RGBA{R: red, G: green, B: blue, A: 255})
 		//fmt.Println(pixnum, pix, red, green, blue)
-		fmt.Printf("/opt/homebrew/bin/mosquitto_pub -h 10.1.0.1 -t '/ledwall/1/request' -m \"{'action':'pixel','num':%d,'r':%d,'g':%d,'b':%d}\"\n", pixnum, red, green, blue)
+		//fmt.Printf("/opt/homebrew/bin/mosquitto_pub -h 10.1.0.1 -t '/ledwall/1/request' -m \"{'action':'pixel','num':%d,'r':%d,'g':%d,'b':%d}\"\n", pixnum, red, green, blue)
 	}
+	return
 }
 
 func scaleToRange2d(pix Pix, bl, br, tl, tr uint8) uint8 {
