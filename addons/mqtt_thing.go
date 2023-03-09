@@ -113,16 +113,28 @@ type MQTTFadeAction struct {
 func (action *MQTTFadeAction) Pressed(btn streamdeck.Button) {
     fade_options := []LEDWallFade{
         LEDWallFade{
+            BL: color.RGBA{R: 50, G: 00, B: 00, A: 255},
+            TL: color.RGBA{R: 50, G: 50, B: 00, A: 255},
+            BR: color.RGBA{R: 00, G: 00, B: 50, A: 255},
+            TR: color.RGBA{R: 50, G: 50, B: 00, A: 255},
+        },
+        LEDWallFade{
+            BL: color.RGBA{R: 15, G: 00, B: 10, A: 255},
+            TL: color.RGBA{R: 20, G: 20, B: 00, A: 255},
+            BR: color.RGBA{R: 10, G: 00, B: 10, A: 255},
+            TR: color.RGBA{R: 30, G: 00, B: 20, A: 255},
+        },
+        LEDWallFade{
             BL: color.RGBA{R: 0, G: 0, B: 50, A: 255},
-            TL: color.RGBA{R: 0, G: 10, B: 30, A: 255},
+            TL: color.RGBA{R: 0, G: 20, B: 30, A: 255},
             BR: color.RGBA{R: 10, G: 0, B: 20, A: 255},
             TR: color.RGBA{R: 50, G: 40, B: 0, A: 255},
         },
         LEDWallFade{
-            BL: color.RGBA{R: 50, G: 0, B: 50, A: 255},
-            TL: color.RGBA{R: 0, G: 10, B: 30, A: 255},
-            BR: color.RGBA{R: 30, G: 0, B: 20, A: 255},
-            TR: color.RGBA{R: 50, G: 40, B: 0, A: 255},
+            BL: color.RGBA{R: 00, G: 20, B: 10, A: 255},
+            TL: color.RGBA{R: 10, G: 10, B: 30, A: 255},
+            BR: color.RGBA{R: 20, G: 00, B: 10, A: 255},
+            TR: color.RGBA{R: 00, G: 10, B: 15, A: 255},
         },
     }
 
