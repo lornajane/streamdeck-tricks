@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"image/color"
 	"os/exec"
+	"strings"
 
 	"github.com/magicmonkey/go-streamdeck"
 	sdactionhandlers "github.com/magicmonkey/go-streamdeck/actionhandlers"
@@ -19,13 +20,21 @@ type Mute struct {
 	Button_id int
 }
 
-const source = "source-10"
+var source = "source-10992"
 
 func (s *Mute) Init() {
 	// not much to initialise but should probably read some config for source name
 	// or calculate it, try this (yes, really)
-	// pulsemixer --list-sources | cut -f3 | grep 'UMC404HD 192k Multichannel' | cut -d ',' -f 1 | cut -c 6-
+	command_string := "pulsemixer --list-sources | cut -f3 | grep ': UMC204HD' | cut -d ',' -f 1 | cut -c 6-"
 
+	cmd := exec.Command("bash", "-c", command_string)
+	out, err := cmd.Output()
+	if err != nil {
+		log.Warn().Msg("error")
+		log.Warn().Err(err)
+	}
+	source = strings.TrimSpace(string(out))
+	log.Info().Msg(source)
 }
 
 func (s *Mute) Buttons() {
