@@ -1,1 +1,0 @@
-nativefier --name StreamManagerLJ --single-instance https://dashboard.twitch.tv/u/lornajanetv/stream-manager --internal-urls ".*?\.twitch\.tv\.*?" --inject inject.js

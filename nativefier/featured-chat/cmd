@@ -1,1 +1,0 @@
-nativefier --name FeaturedChatLJ --no-remote --single-instance https://featured.chat/featured-chat/lornajanetv --internal-urls ".*?\.twitch\.tv\.*?" --inject inject.js --inject inject.css
