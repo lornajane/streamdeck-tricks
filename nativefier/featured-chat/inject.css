@@ -1,7 +1,0 @@
-.v-application.primary.add-button:focus {
-    background-color: yellow !important
-}
-
-a:focus {
-  outline: 3px solid green;
-}
